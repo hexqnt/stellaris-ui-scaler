@@ -4,13 +4,17 @@ use super::*;
 fn gfx_mask_roles_are_recognized_without_misclassifying_shared_color_textures() {
     let fixture = fixture();
     let root = fixture.0.join("game");
-    fs::copy(root.join("gfx/test.png"), root.join("gfx/aux.png")).unwrap();
+    fs::copy(
+        root.join("gfx/test.png"),
+        root.join("gfx/animation_mask.png"),
+    )
+    .unwrap();
     fs::copy(root.join("gfx/test.png"), root.join("gfx/shared.png")).unwrap();
     write(
         &root,
         "interface/example.gfx",
         r#"spriteTypes = {
-        spriteType = { name = "GFX_test" texturefile = "gfx/test.png" animationmaskfile = "gfx/aux.png" masking_texture = "gfx/shared.png" }
+        spriteType = { name = "GFX_test" texturefile = "gfx/test.png" animationmaskfile = "gfx/animation_mask.png" masking_texture = "gfx/shared.png" }
         spriteType = { name = "GFX_other" texturefile = "gfx/shared.png" }
     }"#,
     );
@@ -22,7 +26,7 @@ fn gfx_mask_roles_are_recognized_without_misclassifying_shared_color_textures() 
             .unwrap()
             .category
     };
-    assert_eq!(category("gfx/aux.png"), Category::Mask);
+    assert_eq!(category("gfx/animation_mask.png"), Category::Mask);
     assert_eq!(category("gfx/shared.png"), Category::Icon);
     assert_eq!(category("gfx/test.png"), Category::Icon);
 }
