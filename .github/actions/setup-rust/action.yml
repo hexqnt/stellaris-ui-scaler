@@ -1,0 +1,22 @@
+name: Set up Rust
+description: Install the Rust toolchain, Linux GUI dependencies, and Cargo cache
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux GUI dependencies
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y \
+          libegl1-mesa-dev libgl1-mesa-dev libwayland-dev \
+          libx11-dev libxcursor-dev libxi-dev libxkbcommon-dev libxrandr-dev
+
+    - name: Install Rust from rust-toolchain.toml
+      shell: bash
+      run: |
+        rustup show
+        rustup component add clippy rustfmt
+
+    - uses: Swatinem/rust-cache@v2

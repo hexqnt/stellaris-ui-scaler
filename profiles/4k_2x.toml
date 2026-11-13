@@ -1,0 +1,26 @@
+name = "Stellaris UI Scaler 4K"
+resolution = [
+    3840,
+    2160,
+]
+scale = 2.0
+reproduction = false
+
+[textures]
+algorithm = "lanczos3"
+color_space = "srgb"
+premultiplied_alpha = true
+independent_frames = true
+sharpening = 0.45
+sharpening_radius = 1.0
+sharpening_threshold = 2
+
+[outliner]
+compact = true
+width = 600
+row_height = 30
+title_height = 40
+
+[categories]
+
+[assets]

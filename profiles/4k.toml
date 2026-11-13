@@ -1,0 +1,298 @@
+name = "Stellaris UI Scaler 4K"
+mod_version = "0.1.0"
+source_mods = []
+resolution = [
+    3840,
+    2160,
+]
+scale = 2.0
+font_scale = 1.9
+reproduction = false
+auto_algorithm = true
+auto_sharpening = true
+
+[fonts.hoi_16mbs]
+replace_bitmap = false
+
+[textures]
+algorithm = "lanczos3"
+color_space = "srgb"
+premultiplied_alpha = true
+independent_frames = true
+sharpening = 0.45
+sharpening_radius = 1.0
+sharpening_threshold = 2
+
+[outliner]
+compact = false
+width = 600
+row_height = 30
+title_height = 40
+
+[categories.icon]
+algorithm = "catmull_rom"
+color_space = "srgb"
+premultiplied_alpha = true
+independent_frames = true
+sharpening = 0.45
+
+[directories."gfx/cursors"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/additional_content"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/anomaly"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/archaeology"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/astral_actions"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/astral_rifts"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/buttons"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/contacts"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/council_view"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/crisis"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/databank"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/diplomacy"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/dividers"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/elections"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/espionage"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/event_window"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/federation"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/flags"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/fleet_view"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/frontend"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/game_setup"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/government_mod_window"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/grand_archive"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/icons"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/icons/ascension_perks"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/icons/astral_actions"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/icons/combat_stats"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/icons/decisions"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/icons/deposits"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/icons/relics"]
+algorithm = "lanczos3"
+
+[directories."gfx/interface/intel"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/main"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/market"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/multiplayer"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/musicplayer"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/outliner"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/planetview"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/progressbars"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/ship_designer"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/social"]
+algorithm = "catmull_rom"
+
+[directories."gfx/interface/system"]
+algorithm = "catmull_rom"
+
+[assets."gfx/arrows/vertical_arrow.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/cursors/crosshair_01.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/cursors/crosshair_anim.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/additional_content/checkmark_dlc.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/additional_content/loading.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/additional_content/loading_anim.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/additional_content/loading_anim_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/contracts/diplomacy_banner_contract.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/contracts/military_banner_contract.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/contracts/resources_banner_contract.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/contracts/science_banner_contract.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_toggle_cloak_off.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/flag_colorpicker_highlight.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/flag_swatch_border.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/gamesetup_colorpicker.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/gamesetup_colorpicker_highlight.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/gamesetup_delete.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/select_button.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/selection_planet.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/ship_colorpicker_highlight.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/title_glow_big.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/frontend/travel_method_03.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/frontend/weapon_type_01.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/galacticcommunity/button_galacticcommunity__emperor_endsession.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/button_galacticcommunity_end_session.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/change_galactic_focus_button.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/custodian_backing_gui.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/custodian_mini_bg.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/custodian_mini_bg_gdf_frame.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/detail_line_01.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/emperor_authority_bg.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/galacticcommunity_portraitframe.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/galacticcommunity_resolutionbutton_group_backgrounds.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/galacticcommunity_resolutionbutton_proposed_status.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/senatefloor_votetally_bg.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/senatefloor_votetally_winner.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/senatefloor_voteyes.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/senatefloor_votingtally_progressbarlarge.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/galacticcommunity/senatefloor_votingtally_progressbarlarge_bg.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/grand_archive/vivarium_tank_frame.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/grand_archive/vivarium_view_frame.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/icons/delete.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/icons/planet_disconnected_from_system.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/icons/planet_type_big_icons.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/icons/planet_type_icons.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/icons/research_icon.dds"]
+algorithm = "catmull_rom"

@@ -1,0 +1,10 @@
+name = "Stellaris UI Scaler Reference"
+resolution = [3440, 1440]
+scale = 1.3846
+reproduction = true
+
+[textures]
+algorithm = "lanczos3"
+premultiplied_alpha = false
+independent_frames = false
+sharpening = 0.45
