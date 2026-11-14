@@ -1,18 +1,22 @@
 name = "Stellaris UI Scaler 4K"
 mod_version = "0.1.0"
 source_mods = []
+disabled_source_mods = ["/home/v_0ver/ssd/SteamLibrary/steamapps/workshop/content/281990/681483874"]
 resolution = [
     3840,
     2160,
 ]
 scale = 2.0
 font_scale = 1.9
+font_mode = "truetype"
 reproduction = false
 auto_algorithm = true
 auto_sharpening = true
 
-[fonts.hoi_16mbs]
-replace_bitmap = false
+[auto_source_mods]
+source_mods = ["/home/v_0ver/ssd/SteamLibrary/steamapps/workshop/content/281990/681483874"]
+
+[fonts]
 
 [textures]
 algorithm = "lanczos3"

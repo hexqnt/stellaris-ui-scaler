@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
@@ -244,7 +244,7 @@ pub fn plan_with_profile(
     plan_with_mods(game, &sources, control, progress)
 }
 
-/// Загружает текущие включённые моды и сохраняет выбор галочек из профиля.
+/// Загружает текущие включённые моды, сохраняя выбор из профиля и отключая новые источники.
 /// # Errors
 /// Возвращает ошибку обнаружения, чтения или отмены; исходный профиль не меняется.
 pub fn scan_enabled_mods(
@@ -263,10 +263,23 @@ pub fn scan_enabled_mods(
     let changes = profile.auto_source_mods.as_ref().and_then(|settings| {
         source_mods::ModListMismatch::between(&settings.source_mods, &discovered.source_mods)
     });
+    let known: BTreeSet<_> = profile
+        .auto_source_mods
+        .iter()
+        .flat_map(|settings| &settings.source_mods)
+        .collect();
+    let mut disabled_source_mods = profile.disabled_source_mods.clone();
+    disabled_source_mods.extend(
+        discovered
+            .source_mods
+            .iter()
+            .filter(|path| !known.contains(path))
+            .cloned(),
+    );
     let selected: Vec<_> = discovered
         .source_mods
         .iter()
-        .filter(|path| !profile.disabled_source_mods.contains(*path))
+        .filter(|path| !disabled_source_mods.contains(*path))
         .cloned()
         .collect();
     let plan = plan_with_mods(game, &selected, control, progress)?;
@@ -278,6 +291,7 @@ pub fn scan_enabled_mods(
             source_mods: discovered.source_mods,
         },
         changes,
+        disabled_source_mods,
         removed_manual_sources: !profile.source_mods.is_empty(),
     })
 }

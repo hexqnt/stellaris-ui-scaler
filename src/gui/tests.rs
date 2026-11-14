@@ -182,16 +182,17 @@ fn scan_loads_enabled_mods_preserves_choices_and_keeps_the_old_snapshot_on_failu
     );
     assert_eq!(studio.profile.source_mods, Vec::<std::path::PathBuf>::new());
     assert_eq!(
-        studio.plan.as_ref().unwrap().game.source_mods.as_slice(),
-        std::slice::from_ref(&source)
+        studio.plan.as_ref().unwrap().game.source_mods,
+        Vec::<std::path::PathBuf>::new()
     );
+    assert!(studio.profile.disabled_source_mods.contains(&source));
     assert!(studio.status.contains("Enabled UI mods changed"));
-    studio.profile.disabled_source_mods.insert(source);
+    studio.profile.disabled_source_mods.remove(&source);
     studio.scan_assets(&ctx);
     finish_scan(&mut studio, &ctx);
     assert_eq!(
-        studio.plan.as_ref().unwrap().game.source_mods,
-        Vec::<std::path::PathBuf>::new()
+        studio.plan.as_ref().unwrap().game.source_mods.as_slice(),
+        std::slice::from_ref(&source)
     );
     let profile_path = directory.join("profile.toml");
     studio.profile.save(&profile_path).unwrap();

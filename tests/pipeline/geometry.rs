@@ -89,6 +89,56 @@ fn combined_gfx_pass_preserves_nested_references_and_expression_spans() {
 }
 
 #[test]
+fn button_text_offsets_follow_gui_scale() {
+    let source = r#"guiTypes = {
+        buttonType = {
+            name = "general_settings_tab"
+            quadTextureSprite = "GFX_tab_gamesetup"
+            position = { x = 620 y = 60 }
+            scale = 0.75
+            font = "malgun_goth_24"
+            buttontext = "GALAXY_SETTINGS_GENERAL"
+            text_offset = { x = -30 y = -12 }
+        }
+        buttonType = {
+            name = "advanced_settings_tab"
+            buttontext = "GALAXY_SETTINGS_ADVANCED"
+            Text_Offset = { x = -30 y = -12 }
+        }
+        buttonType = {
+            name = "custom_tab"
+            text_offset = { x = 10 y = 0 }
+        }
+    }"#;
+    for factor in [0.5, 1.0, 1.3846, 1.86921, 2.0] {
+        let scale = Scale::try_from(factor).unwrap();
+        for path in [
+            "interface/game_setup/setup.gui",
+            "interface/mp_gamesetup.gui",
+        ] {
+            let result = scaling::geometry(source, scale, false, path, &mut Vec::new()).unwrap();
+            let doc = Document::parse(&result).unwrap();
+            let buttons = doc.nodes[0].children();
+            for button in &buttons[..2] {
+                assert_eq!(number(button, "text_offset", "x"), scale.pixels(-30.0));
+                assert_eq!(number(button, "text_offset", "y"), scale.pixels(-12.0));
+            }
+            assert_eq!(number(&buttons[2], "text_offset", "x"), scale.pixels(10.0));
+            assert_eq!(number(&buttons[2], "text_offset", "y"), 0.0);
+            assert_eq!(buttons[0].field("scale").unwrap().atom(), Some("0.75"));
+            assert_eq!(
+                buttons[0].field("font").unwrap().atom(),
+                Some("malgun_goth_24")
+            );
+            assert_eq!(
+                buttons[0].field("buttontext").unwrap().atom(),
+                Some("GALAXY_SETTINGS_GENERAL")
+            );
+        }
+    }
+}
+
+#[test]
 fn geometry_is_contextual_and_rounds_like_python() {
     let source = "guiTypes = { @s = 3 iconType = { name = \"test\" position { x = -3 y = 0 } size = { width = 100% height = @s } scale = 0.8 } if_scaled_resolution = { min_width = 1920 containerWindowType = { maxWidth = 200 } } }";
     let result = scaling::geometry(

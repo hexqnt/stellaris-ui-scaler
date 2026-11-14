@@ -175,8 +175,10 @@ impl Studio {
             settings,
             changes,
             removed_manual_sources,
+            disabled_source_mods,
         } = scan;
         self.profile.auto_source_mods = Some(settings);
+        self.profile.disabled_source_mods = disabled_source_mods;
         self.profile.source_mods.clear();
         self.source_mods_editor
             .scanned(changes, removed_manual_sources);

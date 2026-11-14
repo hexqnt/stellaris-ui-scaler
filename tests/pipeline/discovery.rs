@@ -459,7 +459,7 @@ fn mod_table_names_use_metadata_with_a_folder_name_fallback() {
 }
 
 #[test]
-fn scan_automatically_loads_enabled_mods_and_refreshes_the_snapshot_with_preserved_choices() {
+fn scan_disables_new_mods_and_refreshes_the_snapshot_with_preserved_choices() {
     let fixture = fixture();
     let game = fixture.0.join("game");
     let user_data = fixture.0.join("user");
@@ -485,15 +485,13 @@ fn scan_automatically_loads_enabled_mods_and_refreshes_the_snapshot_with_preserv
     let initial = compiler::scan_enabled_mods(&game, &profile, &control, &mut |_| {}).unwrap();
     let first = first.canonicalize().unwrap();
     let second = second.canonicalize().unwrap();
-    assert_eq!(
-        initial.plan.game.source_mods.as_slice(),
-        std::slice::from_ref(&first)
-    );
-    assert!(initial.plan.sources["interface/example.gui"].contains("x = 11"));
+    assert_eq!(initial.plan.game.source_mods, Vec::<PathBuf>::new());
+    assert!(initial.disabled_source_mods.contains(&first));
     assert!(initial.changes.is_none());
     assert!(profile.auto_source_mods.is_none());
     profile.auto_source_mods = Some(initial.settings);
-    profile.disabled_source_mods.insert(first.clone());
+    profile.disabled_source_mods = initial.disabled_source_mods;
+    profile.disabled_source_mods.remove(&first);
     profile
         .source_mods
         .push(fixture.0.join("not-enabled-manual-source"));
@@ -501,9 +499,11 @@ fn scan_automatically_loads_enabled_mods_and_refreshes_the_snapshot_with_preserv
     let updated = compiler::scan_enabled_mods(&game, &profile, &control, &mut |_| {}).unwrap();
     assert_eq!(
         updated.plan.game.source_mods.as_slice(),
-        std::slice::from_ref(&second)
+        std::slice::from_ref(&first)
     );
-    assert!(updated.plan.sources["interface/example.gui"].contains("x = 23"));
+    assert!(updated.plan.sources["interface/example.gui"].contains("x = 11"));
+    assert!(updated.disabled_source_mods.contains(&second));
+    assert!(!updated.disabled_source_mods.contains(&first));
     assert!(updated.removed_manual_sources);
     assert_eq!(
         updated.settings.source_mods,
@@ -513,8 +513,8 @@ fn scan_automatically_loads_enabled_mods_and_refreshes_the_snapshot_with_preserv
     assert_eq!(changes.saved.as_slice(), std::slice::from_ref(&first));
     assert_eq!(changes.current, [first.clone(), second.clone()]);
     profile.auto_source_mods = Some(updated.settings);
+    profile.disabled_source_mods = updated.disabled_source_mods;
     profile.source_mods.clear();
-    assert!(profile.disabled_source_mods.contains(&first));
     let output = fixture.0.join("compiled");
     compiler::build(&updated.plan, &profile, &output, &control, &mut |_| {}).unwrap();
     export(&user_data, &["mod/second.mod", "mod/first.mod"]);

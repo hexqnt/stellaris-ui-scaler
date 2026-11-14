@@ -89,7 +89,7 @@ impl Editor {
         let mut changed = false;
         ui.add_space(12.0);
         ui.strong("Source UI mods");
-        ui.small("Scan assets loads enabled UI mods. Uncheck any mods you want to exclude.");
+        ui.small("Scan assets lists enabled UI mods. Check the mods you want to include; new mods are unchecked.");
         let paths = profile
             .auto_source_mods
             .as_ref()

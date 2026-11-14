@@ -18,6 +18,7 @@ const BLOCKS: &[&str] = &[
     "maxsize",
     "minsize",
     "offset",
+    "text_offset",
 ];
 const SCALARS: &[&str] = &[
     "maxwidth",

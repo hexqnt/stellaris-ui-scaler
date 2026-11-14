@@ -191,6 +191,7 @@ impl BuildPlan {
 pub struct EnabledModScan {
     pub plan: BuildPlan,
     pub settings: crate::config::AutoSourceMods,
+    pub disabled_source_mods: BTreeSet<PathBuf>,
     pub changes: Option<source_mods::ModListMismatch>,
     pub removed_manual_sources: bool,
 }
