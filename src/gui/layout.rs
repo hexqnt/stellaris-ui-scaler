@@ -55,6 +55,9 @@ impl Studio {
                         self.scale_controls(ui);
                     });
                 });
+                if let Some(warning) = self.plan.as_ref().and_then(|plan| plan.version_warning()) {
+                    ui.colored_label(ui.visuals().warn_fg_color, &warning.message);
+                }
             });
     }
 

@@ -9,6 +9,7 @@ mod output;
 mod preview;
 mod texture_cache;
 mod texture_pipeline;
+mod version;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -166,6 +167,13 @@ pub struct BuildPlan {
 
 impl BuildPlan {
     #[must_use]
+    pub fn version_warning(&self) -> Option<&Diagnostic> {
+        self.diagnostics
+            .iter()
+            .find(|entry| entry.rule == version::RULE)
+    }
+
+    #[must_use]
     pub fn report(&self) -> ScanReport<'_> {
         ScanReport {
             version: &self.game.version,
@@ -252,11 +260,6 @@ pub fn build(
         );
     }
     drop(texture_outputs);
-    ensure!(
-        plan.game.version == "v4.5.2",
-        "Unsupported game version: {}; only v4.5.2 has been targeted",
-        plan.game.version
-    );
     let transaction = output::OutputTransaction::prepare(output, &plan.game)?;
     let mut cache = texture_cache::TextureCache::open(transaction.cache_root())?;
     let mut diagnostics = plan.diagnostics.clone();

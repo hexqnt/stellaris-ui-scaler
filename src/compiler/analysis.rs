@@ -295,6 +295,9 @@ pub fn plan_with_mods(
     let mut sources = BTreeMap::new();
     let mut sprites = Vec::new();
     let mut analysis = Analysis::default();
+    analysis
+        .diagnostics
+        .extend(super::version::warning(&game.version));
     let paths: Vec<_> = game.interface_files().collect();
     for (index, path) in paths.iter().enumerate() {
         control.check()?;

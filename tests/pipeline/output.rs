@@ -1,6 +1,55 @@
 use super::*;
 
 #[test]
+fn game_versions_warn_without_blocking_scan_or_build() {
+    let fixture = fixture();
+    let game = fixture.0.join("game");
+    let control = Control::default();
+    let profile = Profile::default();
+    let output = fixture.0.join("mod");
+    for (version, should_warn) in [
+        (Some("v4.5.2"), false),
+        (Some("v4.5.4"), false),
+        (Some("4.5.100"), false),
+        (Some("v4.4.9"), true),
+        (Some("v4.6.0"), true),
+        (Some("v5.5.0"), true),
+        (Some("v4.50.0"), true),
+        (Some("v4.5.invalid"), true),
+        (Some("v4.5.4.extra"), true),
+        (None, true),
+    ] {
+        if let Some(version) = version {
+            write(
+                &game,
+                "launcher-settings.json",
+                &serde_json::json!({ "rawVersion": version }).to_string(),
+            );
+        } else {
+            fs::remove_file(game.join("launcher-settings.json")).unwrap();
+        }
+        let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+        assert_eq!(plan.version_warning().is_some(), should_warn, "{version:?}");
+        let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|d| d.rule == "game-version")
+                .count(),
+            usize::from(should_warn),
+            "{version:?}"
+        );
+        let descriptor = fs::read_to_string(output.join("descriptor.mod")).unwrap();
+        assert!(descriptor.contains(&format!(
+            "supported_version=\"{}\"",
+            version.unwrap_or("unknown")
+        )));
+        assert!(report.validation.errors.is_empty());
+    }
+}
+
+#[test]
 fn mod_picture_is_saved_converted_replaced_and_removed() {
     let fixture = fixture();
     let control = Control::default();

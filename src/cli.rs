@@ -191,6 +191,14 @@ fn progress(event: Progress) {
         eprintln!("{}: {}/{}", event.stage, event.completed, event.total);
     }
 }
+fn scan(game: &Path, profile: &Profile, control: &Control) -> Result<compiler::BuildPlan> {
+    let plan = compiler::plan_with_profile(game, profile, control, &mut progress)?;
+    if let Some(warning) = plan.version_warning() {
+        eprintln!("Warning: {}", warning.message);
+    }
+    Ok(plan)
+}
+
 /// # Errors
 /// Возвращает ошибку выбранной команды или запуска GUI.
 pub fn run() -> Result<()> {
@@ -219,8 +227,7 @@ pub fn run() -> Result<()> {
                 .as_deref()
                 .map_or_else(|| Ok(Profile::default()), Profile::load)?;
             let game = sources.apply(&mut profile)?;
-            let plan =
-                compiler::plan_with_profile(&game, &profile, &Control::default(), &mut progress)?;
+            let plan = scan(&game, &profile, &Control::default())?;
             json(&plan.report(), output.as_deref())
         }
         Command::Build {
@@ -240,7 +247,7 @@ pub fn run() -> Result<()> {
                 profile.picture = Some(picture);
             }
             let control = Control::default();
-            let plan = compiler::plan_with_profile(&game, &profile, &control, &mut progress)?;
+            let plan = scan(&game, &profile, &control)?;
             let result = compiler::build(&plan, &profile, &output, &control, &mut progress)?;
             json(&result, report.as_deref())
         }
