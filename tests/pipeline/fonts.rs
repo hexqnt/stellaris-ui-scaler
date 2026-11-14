@@ -3,6 +3,94 @@ use stellaris_ui_scaler::config::FontMode;
 use super::*;
 
 #[test]
+fn font_usage_tracks_explicit_assignments_in_effective_mod_files() {
+    let fixture = font_fixture();
+    let game = fixture.0.join("game");
+    let source_mod = fixture.0.join("source-mod");
+    let gui = "\u{feff}guiTypes = {\r\n containerWindowType = { name = окно\r\n  instantTextBoxType = { name = title FONT = \"cg_16b\" }\r\n  font = cg_16b\r\n  buttonType = { name = confirm buttonFont = cg_16b }\r\n  # font = hoi_16mbs\r\n  text = \"font = hoi_16mbs\"\r\n  iconType = { name = cg_16b spriteType = cg_16b }\r\n  instantTextBoxType = { font = unknown_font }\r\n }\r\n}";
+    write(&game, "interface/usage.gui", gui);
+    write(
+        &game,
+        "interface/other.gui",
+        "textBoxType = { font = cg_16b }",
+    );
+    write(
+        &source_mod,
+        "interface/usage.gui",
+        "buttonType = { name = mod_button buttonFont = jura }",
+    );
+    let control = Control::default();
+    let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+    let group = plan
+        .fonts
+        .groups
+        .iter()
+        .find(|g| g.name == "cg_16b")
+        .unwrap();
+    let references: Vec<_> = group
+        .usages
+        .iter()
+        .map(|usage| {
+            (
+                usage.file.as_ref(),
+                usage.line,
+                usage.widget.as_deref(),
+                usage.kind.as_str(),
+                usage.property.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        references,
+        [
+            ("interface/other.gui", 1, None, "textBoxType", "font"),
+            (
+                "interface/usage.gui",
+                3,
+                Some("title"),
+                "instantTextBoxType",
+                "FONT"
+            ),
+            (
+                "interface/usage.gui",
+                4,
+                Some("окно"),
+                "containerWindowType",
+                "font"
+            ),
+            (
+                "interface/usage.gui",
+                5,
+                Some("confirm"),
+                "buttonType",
+                "buttonFont"
+            ),
+        ]
+    );
+    assert!(
+        plan.fonts
+            .groups
+            .iter()
+            .find(|g| g.name == "hoi_16mbs")
+            .unwrap()
+            .usages
+            .is_empty()
+    );
+    let plan = compiler::plan_with_mods(&game, &[source_mod], &control, &mut |_| {}).unwrap();
+    let group = plan
+        .fonts
+        .groups
+        .iter()
+        .find(|g| g.name == "cg_16b")
+        .unwrap();
+    assert_eq!(group.usages.len(), 1);
+    assert_eq!(group.usages[0].file.as_ref(), "interface/other.gui");
+    let group = plan.fonts.groups.iter().find(|g| g.name == "jura").unwrap();
+    assert_eq!(group.usages.len(), 1);
+    assert_eq!(group.usages[0].widget.as_deref(), Some("mod_button"));
+}
+
+#[test]
 fn combined_font_pass_preserves_sequential_definitions_and_bitmap_outputs() {
     use stellaris_ui_scaler::config::FontRule;
     let fixture = font_fixture();

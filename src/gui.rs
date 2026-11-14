@@ -113,9 +113,10 @@ impl Studio {
                 .first()
                 .map(|location| location.path().to_owned())
         });
+        let profile = Profile::load(std::path::Path::new("profiles/4k.toml")).unwrap_or_default();
         Self {
             tab: WorkspaceTab::Textures,
-            font_settings: font_settings::FontSettings::default(),
+            font_settings: font_settings::FontSettings::for_profile(&profile),
             source_mods_editor: source_mods::Editor::default(),
             game: game.map_or_default(|path| path.display().to_string()),
             game_locations,
@@ -123,7 +124,7 @@ impl Studio {
             built_mod: None,
             mods_directory: String::new(),
             profile_path: "profiles/4k.toml".into(),
-            profile: Profile::load(std::path::Path::new("profiles/4k.toml")).unwrap_or_default(),
+            profile,
             plan: None,
             selected: None,
             filter: String::new(),

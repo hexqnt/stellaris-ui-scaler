@@ -28,6 +28,7 @@ pub struct BitmapVariant {
 #[derive(Debug, Clone, Default)]
 pub struct Group {
     pub name: String,
+    pub usages: Vec<super::Usage>,
     pub bitmap_path: Option<String>,
     pub bitmap: bool,
     pub bitmap_face: Option<String>,

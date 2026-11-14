@@ -1,5 +1,6 @@
 pub mod bitmap;
 mod catalog;
+pub(crate) mod usage;
 
 use std::collections::BTreeMap;
 
@@ -12,6 +13,7 @@ use crate::{
 };
 
 pub use catalog::{BitmapVariant, Catalog, Group, Resolved, Variant};
+pub use usage::{Usage, UsageArea};
 
 const EXTENDED: &[&str] = &[
     "l_english",

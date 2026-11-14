@@ -4,6 +4,76 @@ use crate::gui::tests::{action, node};
 
 use super::*;
 
+#[test]
+fn profile_customizations_open_advanced_settings() {
+    let mut profile = Profile {
+        font_mode: FontMode::TrueType,
+        font_scale: Some(Scale::try_from(1.9).unwrap()),
+        ..Default::default()
+    };
+    assert!(!FontSettings::for_profile(&profile).advanced);
+    for rule in [
+        FontRule::default(),
+        FontRule {
+            replace_bitmap: Some(false),
+            ..Default::default()
+        },
+        FontRule {
+            family: Some("Easter_normal".into()),
+            ..Default::default()
+        },
+        FontRule {
+            scale: Some(Scale::try_from(1.5).unwrap()),
+            ..Default::default()
+        },
+        FontRule {
+            base_size: Some(FontSize::try_from(20.0).unwrap()),
+            ..Default::default()
+        },
+    ] {
+        let customized = rule != FontRule::default();
+        profile.fonts.insert("cg_16b".into(), rule);
+        assert_eq!(FontSettings::for_profile(&profile).advanced, customized);
+    }
+}
+
+#[test]
+fn loading_profiles_updates_advanced_settings() {
+    let temporary = crate::test_support::Temp::new();
+    let path = temporary.0.join("profile.toml");
+    let mut profile = Profile::default();
+    profile.fonts.insert(
+        "cg_16b".into(),
+        FontRule {
+            scale: Some(Scale::try_from(1.5).unwrap()),
+            ..Default::default()
+        },
+    );
+    profile.save(&path).unwrap();
+    let mut studio = crate::gui::Studio::new(None);
+    studio.profile_path = path.display().to_string();
+    studio.font_settings.advanced = false;
+    studio.load_profile();
+    assert!(studio.font_settings.advanced);
+
+    let ctx = egui::Context::default();
+    studio.font_settings.advanced = false;
+    render(
+        &ctx,
+        &mut studio.font_settings,
+        &mut studio.profile,
+        Vec::new(),
+    )
+    .drop_without_applying_deltas();
+    assert!(!studio.font_settings.advanced);
+    studio.load_profile();
+    assert!(studio.font_settings.advanced);
+
+    Profile::default().save(&path).unwrap();
+    studio.load_profile();
+    assert!(!studio.font_settings.advanced);
+}
+
 fn editor() -> (egui::Context, FontSettings, Profile) {
     let ctx = egui::Context::default();
     ctx.enable_accesskit();
@@ -68,6 +138,89 @@ fn render_catalog(
         },
         |ui| settings.show(ui, catalog, profile),
     )
+}
+
+#[test]
+fn area_filter_selects_the_matching_font_and_handles_missing_references() {
+    let (ctx, mut settings, mut profile) = editor();
+    let mut catalog = catalog();
+    settings.area = Some(UsageArea::MapResources);
+    let mut output = render_catalog(&ctx, &mut settings, &mut profile, &catalog, Vec::new());
+    output.textures_delta.clear();
+    node(&output, |node| {
+        node.value()
+            .is_some_and(|text| text.starts_with("No fonts found for this area"))
+    });
+    output.drop_without_applying_deltas();
+    catalog.groups.push(Group {
+        name: "hoi_16mbs".into(),
+        usages: vec![fonts::Usage {
+            area: Some(UsageArea::MapResources),
+            file: "interface/mapicons.gui".into(),
+            line: 79,
+            widget: Some("num".into()),
+            kind: "instantTextBoxType".into(),
+            property: "font".into(),
+        }],
+        ..Default::default()
+    });
+    let mut output = render_catalog(&ctx, &mut settings, &mut profile, &catalog, Vec::new());
+    assert_eq!(settings.selected, 1);
+    output.textures_delta.clear();
+    node(&output, |node| {
+        node.label()
+            .is_some_and(|label| label.starts_with("hoi_16mbs "))
+    });
+    assert!(
+        output
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .nodes
+            .iter()
+            .all(|(_, node)| !node
+                .label()
+                .is_some_and(|label| label.starts_with("cg_16b ")))
+    );
+    output.drop_without_applying_deltas();
+    assert!(profile.fonts.is_empty());
+}
+
+#[test]
+fn expanding_font_usage_shows_the_file_and_widget() {
+    let (ctx, mut settings, mut profile) = editor();
+    let mut catalog = catalog();
+    catalog.groups[0].usages.push(fonts::Usage {
+        area: Some(UsageArea::PlanetView),
+        file: "interface/planet_view.gui".into(),
+        line: 42,
+        widget: Some("planet_title".into()),
+        kind: "instantTextBoxType".into(),
+        property: "font".into(),
+    });
+    let output = render_catalog(&ctx, &mut settings, &mut profile, &catalog, Vec::new());
+    let usage = node(&output, |node| {
+        node.label() == Some("Where used · references: 1")
+    });
+    output.drop_without_applying_deltas();
+    render_catalog(
+        &ctx,
+        &mut settings,
+        &mut profile,
+        &catalog,
+        vec![action(Action::Click, usage, None)],
+    )
+    .drop_without_applying_deltas();
+    let output = render_catalog(&ctx, &mut settings, &mut profile, &catalog, Vec::new());
+    node(&output, |node| {
+        node.value() == Some("interface/planet_view.gui")
+    });
+    node(&output, |node| {
+        node.value() == Some("Line 42 · planet_title · instantTextBoxType · font")
+    });
+    output.drop_without_applying_deltas();
+    assert!(profile.fonts.is_empty());
 }
 
 #[test]

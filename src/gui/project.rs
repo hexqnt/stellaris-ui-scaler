@@ -206,6 +206,7 @@ impl Studio {
                 let sources_changed = profile.source_mods != self.profile.source_mods
                     || profile.auto_source_mods != self.profile.auto_source_mods
                     || profile.disabled_source_mods != self.profile.disabled_source_mods;
+                self.font_settings = super::font_settings::FontSettings::for_profile(&profile);
                 self.profile = profile;
                 self.source_mods_editor.reset();
                 if sources_changed {

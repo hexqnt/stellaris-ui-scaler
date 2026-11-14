@@ -307,6 +307,7 @@ pub fn plan_with_mods(
     control.check()?;
     let game = Installation::open(game)?.with_source_mods(source_mods)?;
     let mut sources = BTreeMap::new();
+    let mut font_usage = crate::fonts::usage::Index::default();
     let mut sprites = Vec::new();
     let mut analysis = Analysis::default();
     analysis
@@ -323,6 +324,9 @@ pub fn plan_with_mods(
         control.check()?;
         let source = game.text(path)?;
         let doc = Document::parse(&source).with_context(|| format!("Cannot parse {path}"))?;
+        if path.ends_with(".gui") {
+            font_usage.read_gui(path, &doc);
+        }
         if path.ends_with(".gfx") {
             doc.try_walk(|node| -> Result<()> {
                 if node.named().is_some()
@@ -363,7 +367,8 @@ pub fn plan_with_mods(
     }
     control.check()?;
     let (textures, diagnostics) = analysis.finish();
-    let fonts = crate::fonts::Catalog::load(&game, &sources)?;
+    let mut fonts = crate::fonts::Catalog::load(&game, &sources)?;
+    font_usage.apply(&mut fonts);
     control.check()?;
     Ok(BuildPlan {
         fonts,
