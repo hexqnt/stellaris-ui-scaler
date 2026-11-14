@@ -2,7 +2,7 @@ cargo-features = ["profile-rustflags"]
 
 [package]
 name = "stellaris-ui-scaler"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 publish = false
 description = "Compile and compare scaled Stellaris user interfaces"
