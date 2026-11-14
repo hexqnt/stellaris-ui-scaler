@@ -119,7 +119,7 @@ impl Studio {
         texture: &TextureHandle,
         overlay: Option<&TextureHandle>,
         viewport: Vec2,
-    ) -> Option<f32> {
+    ) -> (egui::Response, Option<f32>) {
         let native_size = overlay.unwrap_or(texture).size_vec2() / ui.ctx().pixels_per_point();
         let zoom = if self.fit_preview {
             let available = (viewport - Vec2::splat(40.0)).max(Vec2::splat(1.0));
@@ -203,10 +203,12 @@ impl Studio {
                 egui::FontId::proportional(20.0),
                 theme::INK,
             );
-            response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
-            return split;
+            return (
+                response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal),
+                split,
+            );
         }
-        None
+        (response, None)
     }
 
     pub(super) fn previews_panel(&mut self, ui: &mut egui::Ui) {
@@ -268,7 +270,7 @@ impl Studio {
                     self.draw_image(ui, &candidate.1, None, viewport)
                 }
             });
-        if let Some(split) = output.inner {
+        if let Some(split) = output.inner.1 {
             self.split = split;
         }
         self.preview_offset = output.state.clamped_offset();
@@ -295,7 +297,7 @@ impl Studio {
             .mul_add(-((rows - 1) as f32), ui.available_height())
             / rows as f32)
             .max(100.0);
-        let mut next_chosen = self.chosen;
+        let mut next_chosen = None;
         let mut next_offset = self.preview_offset;
         for (row, images) in candidates.chunks(2).enumerate() {
             ui.columns(columns, |cells| {
@@ -318,7 +320,7 @@ impl Studio {
                                 .add(egui::Button::selectable(self.chosen == index, name))
                                 .clicked()
                             {
-                                next_chosen = index;
+                                next_chosen = Some(index);
                             }
                             let viewport =
                                 Vec2::new(ui.available_width(), (row_height - 60.0).max(40.0));
@@ -328,8 +330,13 @@ impl Studio {
                                 .auto_shrink([false, false])
                                 .max_height(viewport.y)
                                 .show(ui, |ui| {
-                                    self.draw_image(ui, image, None, viewport);
+                                    self.draw_image(ui, image, None, viewport)
+                                        .0
+                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
                                 });
+                            if output.inner.clicked() {
+                                next_chosen = Some(index);
+                            }
                             if ui.rect_contains_pointer(output.inner_rect) {
                                 next_offset = output.state.clamped_offset();
                             }
@@ -337,9 +344,13 @@ impl Studio {
                 }
             });
         }
-        self.chosen = next_chosen;
         if self.preview_offset != next_offset {
             self.preview_offset = next_offset;
+            ui.ctx().request_repaint();
+        }
+        if let Some(index) = next_chosen {
+            self.chosen = index;
+            self.apply_selected_preview();
             ui.ctx().request_repaint();
         }
     }

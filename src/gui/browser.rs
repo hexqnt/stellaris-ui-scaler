@@ -6,13 +6,25 @@ use super::{Selection, Studio, icons, theme};
 
 impl Studio {
     fn asset_search_field(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        let id = egui::Id::unique("asset-search");
+        let clear_with_escape = !self.filter.is_empty()
+            && ui.memory(|memory| memory.had_focus_last_frame(id))
+            && ui.input_mut(|input| input.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+        if clear_with_escape {
+            self.filter.clear();
+        }
         let clear_id = egui::IdSalt::new("clear-search");
         let mut output = egui::TextEdit::singleline(&mut self.filter)
+            .id(id)
             .hint_text("Search assets…")
             .prefix(egui::RichText::new(icons::SEARCH).color(theme::MUTED))
             .suffix(egui::Atom::custom(clear_id, Vec2::splat(22.0)))
             .desired_width(f32::INFINITY)
             .show(ui);
+        if clear_with_escape {
+            output.response.mark_changed();
+            output.response.request_focus();
+        }
         if !self.filter.is_empty()
             && let Some(rect) = output.response.rect(clear_id)
         {
@@ -28,7 +40,10 @@ impl Studio {
                 output.response.request_focus();
             }
         }
-        output.response.response
+        output
+            .response
+            .response
+            .on_hover_text("Ctrl+F: search assets · Esc: clear search")
     }
     pub(super) fn assets_panel(&mut self, ui: &mut egui::Ui, busy: bool) {
         let previous_selection = self.selected;
@@ -75,6 +90,9 @@ impl Studio {
             "{} matching textures",
             self.asset_search.matches.len()
         ));
+        if self.plan.is_some() && self.asset_search.matches.is_empty() {
+            ui.weak("No textures match. Try another search or category.");
+        }
         if let Some(category) = self.category
             && ui
                 .add_enabled(!busy, egui::Button::new("Edit category rule"))
@@ -93,6 +111,14 @@ impl Studio {
             self.select_current_algorithm();
         }
     }
+    pub(super) fn apply_selected_preview(&mut self) {
+        if let Some(target) = &self.rule_selection {
+            target.set_algorithm(&mut self.profile, self.algorithms[self.chosen]);
+            self.invalidate_preview();
+            self.status = "Algorithm override updated; save the profile to persist it".into();
+        }
+    }
+
     pub(super) fn candidates_panel(&mut self, ui: &mut egui::Ui, busy: bool) {
         let previous = (self.algorithms, self.count);
         ui.add_enabled_ui(!busy, |ui| {
@@ -118,11 +144,8 @@ impl Studio {
                     egui::Button::new("Use selected preview filter"),
                 )
                 .clicked()
-                && let Some(target) = &self.rule_selection
             {
-                target.set_algorithm(&mut self.profile, self.algorithms[self.chosen]);
-                self.invalidate_preview();
-                self.status = "Algorithm override updated; save the profile to persist it".into();
+                self.apply_selected_preview();
             }
         });
         if previous != (self.algorithms, self.count) {

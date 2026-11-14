@@ -74,7 +74,7 @@ fn workspace(ctx: &egui::Context) -> Studio {
     studio.filter = "very_long".into();
     studio.refresh_asset_filter();
     studio.asset_tree.expand_all();
-    studio.images = [("Original", 32), ("1: Lanczos3", 64), ("2: Lanczos2", 64)]
+    studio.images = [("Original", 32), ("1: Lanczos3", 64), ("2: CatmullRom", 64)]
         .into_iter()
         .map(|(name, side)| {
             (
@@ -263,6 +263,90 @@ fn workspace_panels_stay_inside_the_viewport_with_long_asset_names() {
 }
 
 #[test]
+fn clicking_a_preview_image_or_title_applies_the_algorithm_to_the_current_selection() {
+    use crate::config::TextureRule;
+
+    for selection in [
+        Selection::Asset("gfx/icons/test.dds".into()),
+        Selection::Directory("gfx/icons".into()),
+        Selection::Category(Category::Icon),
+    ] {
+        for click_image in [true, false] {
+            let ctx = egui::Context::default();
+            ctx.enable_accesskit();
+            let mut studio = workspace(&ctx);
+            studio.rule_selection = Some(selection.clone());
+            let index = usize::from(!click_image);
+            let algorithm = studio.algorithms[index];
+            let texture = studio.images[index + 1].1.id();
+            let mut point = None;
+            let mut title = None;
+            for _ in 0..3 {
+                let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                    studio.previews_panel(ui);
+                });
+                point = output.shapes.iter().find_map(|shape| {
+                    if let egui::Shape::Mesh(mesh) = &shape.shape
+                        && mesh.texture_id == texture
+                    {
+                        Some(mesh.calc_bounds().center())
+                    } else {
+                        None
+                    }
+                });
+                title = Some(node(&output, |node| node.label() == Some("2: CatmullRom")));
+                output.drop_without_applying_deltas();
+            }
+            let events = if click_image {
+                let point = point.unwrap();
+                vec![
+                    vec![egui::Event::PointerMoved(point)],
+                    vec![egui::Event::PointerButton {
+                        pos: point,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    }],
+                    vec![egui::Event::PointerButton {
+                        pos: point,
+                        button: egui::PointerButton::Primary,
+                        pressed: false,
+                        modifiers: egui::Modifiers::NONE,
+                    }],
+                ]
+            } else {
+                vec![vec![action(Action::Click, title.unwrap(), None)]]
+            };
+            for events in events {
+                ctx.run_ui(
+                    egui::RawInput {
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| studio.previews_panel(ui),
+                )
+                .drop_without_applying_deltas();
+            }
+            assert_eq!(studio.chosen, index);
+            let rules = match &selection {
+                Selection::Asset(_) => &studio.profile.assets,
+                Selection::Directory(_) => &studio.profile.directories,
+                Selection::Category(_) => &studio.profile.categories,
+            };
+            assert_eq!(
+                rules[selection.key()],
+                TextureRule {
+                    algorithm: Some(algorithm),
+                    ..Default::default()
+                }
+            );
+            assert!(studio.preview_dirty);
+            assert!(studio.images.is_empty());
+        }
+    }
+}
+
+#[test]
 fn split_drag_changes_the_comparison_without_changing_the_profile() {
     let ctx = egui::Context::default();
     let mut studio = workspace(&ctx);
@@ -295,8 +379,9 @@ fn split_drag_changes_the_comparison_without_changing_the_profile() {
                 ..Default::default()
             },
             |ui| {
-                if let Some(split) =
-                    studio.draw_image(ui, &studio.images[0].1, Some(&studio.images[1].1), canvas)
+                if let Some(split) = studio
+                    .draw_image(ui, &studio.images[0].1, Some(&studio.images[1].1), canvas)
+                    .1
                 {
                     studio.split = split;
                 }
@@ -384,4 +469,78 @@ fn editable_game_combo_centers_text_and_matches_menu_width() {
         (menu.width() - combo_rect.width()).abs() < 1.0,
         "{menu:?}, {combo_rect:?}"
     );
+}
+
+#[test]
+fn editing_the_game_path_discards_the_previous_scan_and_build() {
+    let ctx = egui::Context::default();
+    let mut studio = workspace(&ctx);
+    studio.game = "/games/Stellaris".into();
+    studio.built_mod = Some("dist/previous-build".into());
+    let mut input_id = egui::Id::NULL;
+    for _ in 0..3 {
+        ctx.run_ui(egui::RawInput::default(), |ui| {
+            input_id = studio.game_path_field(ui, 340.0).id.with("input");
+        })
+        .drop_without_applying_deltas();
+    }
+    assert!(studio.plan.is_some());
+    assert!(studio.built_mod.is_some());
+    ctx.memory_mut(|memory| memory.request_focus(input_id));
+    ctx.run_ui(
+        egui::RawInput {
+            events: vec![egui::Event::Text("-other".into())],
+            ..Default::default()
+        },
+        |ui| {
+            assert!(studio.game_path_field(ui, 340.0).changed());
+        },
+    )
+    .drop_without_applying_deltas();
+    assert_eq!(studio.game, "/games/Stellaris-other");
+    assert!(studio.plan.is_none());
+    assert!(studio.built_mod.is_none());
+    assert!(studio.selected.is_none());
+    assert!(studio.rule_selection.is_none());
+    assert!(studio.images.is_empty());
+    assert_eq!(studio.asset_search.matches, []);
+    assert!(studio.status.contains("scan assets again"));
+}
+
+#[test]
+fn search_shortcuts_switch_tabs_and_clear_only_the_focused_search() {
+    let ctx = egui::Context::default();
+    let mut studio = workspace(&ctx);
+    studio.tab = WorkspaceTab::Project;
+    let press = |key, modifiers| egui::RawInput {
+        screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1600.0, 1000.0))),
+        events: vec![egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }],
+        ..Default::default()
+    };
+    ctx.run_ui(press(egui::Key::Escape, egui::Modifiers::NONE), |ui| {
+        studio.show(ui);
+    })
+    .drop_without_applying_deltas();
+    assert_eq!(studio.filter, "very_long");
+    ctx.run_ui(press(egui::Key::F, egui::Modifiers::COMMAND), |ui| {
+        studio.show(ui);
+    })
+    .drop_without_applying_deltas();
+    let search_id = egui::Id::unique("asset-search");
+    assert!(studio.tab == WorkspaceTab::Textures);
+    assert!(ctx.memory(|memory| memory.has_focus(search_id)));
+    assert_eq!(studio.filter, "very_long");
+    ctx.run_ui(press(egui::Key::Escape, egui::Modifiers::NONE), |ui| {
+        studio.show(ui);
+    })
+    .drop_without_applying_deltas();
+    assert_eq!(studio.filter, "");
+    assert_eq!(studio.asset_search.matches, [(0, 0)]);
+    assert!(ctx.memory(|memory| memory.has_focus(search_id)));
 }

@@ -100,7 +100,7 @@ impl Studio {
         // ComboBox размещает область редактирования и управляет стандартным меню.
         let input_slot = egui::Atom::paint(input_size, |_, args| input_rect.set(args.rect));
         let mut chosen = None;
-        let combo = egui::ComboBox::from_id_salt("game-location")
+        let mut combo = egui::ComboBox::from_id_salt("game-location")
             .width(width)
             .height(240.0)
             .selected_text(input_slot)
@@ -118,27 +118,37 @@ impl Studio {
                         .add(egui::Button::selectable(selected, &path).truncate())
                         .on_hover_text(&path)
                         .clicked()
+                        && !selected
                     {
                         chosen = Some(path);
                     }
                 }
             });
+        let mut changed = chosen.is_some();
         if let Some(path) = chosen {
             self.game = path;
         }
-        ui.place(
-            egui::Rect::from_center_size(
-                input_rect.get().center(),
-                Vec2::new(input_width, combo.response.rect.height()),
-            ),
-            egui::TextEdit::singleline(&mut self.game)
-                .id(combo.response.id.with("input"))
-                .hint_text("Stellaris installation directory")
-                .frame(egui::Frame::NONE)
-                .margin(egui::Margin::ZERO)
-                .align(egui::Align2::LEFT_CENTER)
-                .desired_width(input_width),
-        );
+        changed |= ui
+            .place(
+                egui::Rect::from_center_size(
+                    input_rect.get().center(),
+                    Vec2::new(input_width, combo.response.rect.height()),
+                ),
+                egui::TextEdit::singleline(&mut self.game)
+                    .id(combo.response.id.with("input"))
+                    .hint_text("Stellaris installation directory")
+                    .frame(egui::Frame::NONE)
+                    .margin(egui::Margin::ZERO)
+                    .align(egui::Align2::LEFT_CENTER)
+                    .desired_width(input_width),
+            )
+            .changed();
+        if changed {
+            self.source_mods_editor.reset();
+            self.invalidate_sources();
+            self.status = "Game installation changed; scan assets again".into();
+            combo.response.mark_changed();
+        }
         combo.response
     }
 

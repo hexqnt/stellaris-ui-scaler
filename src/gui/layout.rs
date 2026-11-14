@@ -98,8 +98,19 @@ impl Studio {
                         ui.label(RichText::new(icons::READY).color(theme::MINT).size(19.0));
                     }
                     let width = (ui.available_width() - 175.0).max(40.0);
-                    ui.add_sized([width, 24.0], egui::Label::new(&self.status).truncate())
-                        .on_hover_text(&self.status);
+                    let message = ui
+                        .add_sized(
+                            [width, 24.0],
+                            egui::Label::new(&self.status)
+                                .truncate()
+                                .sense(egui::Sense::click()),
+                        )
+                        .on_hover_text(&self.status)
+                        .on_hover_text("Click to copy the full message")
+                        .on_hover_cursor(egui::CursorIcon::PointingHand);
+                    if message.clicked() {
+                        ui.ctx().copy_text(self.status.clone());
+                    }
                     ui.separator();
                     if let Some(plan) = &self.plan {
                         ui.weak(format!("Stellaris {}", plan.game.version));
@@ -236,6 +247,15 @@ impl Studio {
     pub(super) fn show(&mut self, root: &mut egui::Ui) {
         let ctx = root.ctx().clone();
         self.poll(&ctx);
+        if ctx.input_mut(|input| {
+            input.consume_shortcut(&egui::KeyboardShortcut::new(
+                egui::Modifiers::COMMAND,
+                egui::Key::F,
+            ))
+        }) {
+            self.tab = WorkspaceTab::Textures;
+            ctx.memory_mut(|memory| memory.request_focus(egui::Id::unique("asset-search")));
+        }
         let busy = self.receiver.is_some();
         self.header(root, &ctx, busy);
         self.status_bar(root, busy);
