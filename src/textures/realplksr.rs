@@ -130,12 +130,17 @@ impl Model {
     ) -> Result<()> {
         let area = tx.input_len as usize * ty.input_len as usize;
         self.input.resize(area * 3, 0.0);
+        // Координаты с оборачиванием вычисляются один раз на столбец, а не для каждого канала и пикселя.
+        let mut columns = [0; (CORE + 2 * HALO) as usize];
+        for (x, sx) in columns[..tx.input_len as usize].iter_mut().enumerate() {
+            *sx = tx.sample(x, source.width());
+        }
+        let columns = &columns[..tx.input_len as usize];
         for (channel, plane) in self.input.chunks_exact_mut(area).enumerate() {
             for (y, row) in plane.chunks_exact_mut(tx.input_len as usize).enumerate() {
                 let sy = ty.sample(y, source.height());
-                for (x, value) in row.iter_mut().enumerate() {
-                    *value = f32::from(source.get_pixel(tx.sample(x, source.width()), sy)[channel])
-                        / 255.0;
+                for (value, &sx) in row.iter_mut().zip(columns) {
+                    *value = f32::from(source.get_pixel(sx, sy)[channel]) / 255.0;
                 }
             }
         }

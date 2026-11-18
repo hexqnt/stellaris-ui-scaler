@@ -46,18 +46,15 @@ For a CLI-only installation, add `--no-default-features`. Run `stellaris-ui-scal
 
 ## RealPLKSR 2x
 
-Choose **RealPLKSR 2x** in the texture algorithm or preview candidates, or load `profiles/4k_realplksr_2x.toml`. Disable **Auto algorithm** when selecting it as the default. Category, directory and asset rules can also select it. CLI builds accept `--algorithm realplksr-2x`; TOML profiles use `algorithm = "realplksr_2x"` under `[textures]`.
+Choose **RealPLKSR 2x** in the texture algorithm or preview candidates, or load `profiles/4k_realplksr_2x.toml`. Disable **Auto algorithm** when selecting it as the default. You can also apply it to individual categories, directories, or textures.
 
-This mode uses the MIT-licensed RealPLKSR 2x MSSIM-pretrain model and runs locally on CPU. It is slower than the resampling filters. Each sprite frame is processed separately, alpha is resampled without neural inference, and the native 2x result is resized to the requested scale with Lanczos3. Downsampling uses Lanczos3 directly. Start with sharpening set to zero and compare the preview before applying the model broadly. Large images are processed in tiles; normalization can cause differences from whole-image inference.
+This mode uses AI to enlarge textures and runs locally on CPU. It is slower than the other filters. Start with sharpening set to zero and compare the preview before applying it broadly.
 
-Release archives include the required resources. For source builds, run the following in a Python virtual environment from the repository root:
+Release archives include everything needed for this mode. Keep the `ai` directory alongside the executable. No internet connection or Python installation is needed to use it.
 
-```bash
-python -m pip install -r tools/requirements-ai.txt
-python tools/prepare_ai.py
-```
+## Command line
 
-Keep the generated `ai` directory in the working directory or beside the executable. Alternatively, set `STELLARIS_UI_SCALER_AI_DIR` to its absolute path. Python is only used to prepare the resources; normal use is offline and does not require Python. The preparation script verifies the model checksum and includes model/runtime licenses. To run the tests that use the actual model: `cargo test --all-features realplksr -- --ignored`. The benchmark command compares resampling filters by default; add `--algorithm realplksr-2x` to measure this model.
+Run `stellaris-ui-scaler --help` for available commands. To see a command's options, add `--help`, for example `stellaris-ui-scaler build --help`.
 
 ## Credits
 

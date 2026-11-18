@@ -84,6 +84,10 @@ pub(super) struct PendingTexture<'a> {
 }
 
 impl PendingTexture<'_> {
+    pub(super) fn uses_neural(&self) -> bool {
+        self.policy.uses_neural()
+    }
+
     pub(super) fn process(
         self,
         processor: &textures::Processor,

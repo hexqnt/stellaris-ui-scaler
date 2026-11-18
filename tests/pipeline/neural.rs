@@ -51,6 +51,133 @@ fn realplksr_configuration_roundtrips_and_downsampling_does_not_require_a_model(
 }
 
 #[test]
+fn realplksr_cold_build_requires_a_model_even_with_classical_results_in_cache() {
+    let fixture = fixture();
+    let root = fixture.0.join("game");
+    let output = fixture.0.join("mod");
+    let run = |algorithm| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_stellaris-ui-scaler"))
+            .args(["build", "--game"])
+            .arg(&root)
+            .args(["--scale", "2", "--algorithm", algorithm, "--output"])
+            .arg(&output)
+            .env(
+                "STELLARIS_UI_SCALER_AI_DIR",
+                fixture.0.join("missing-model"),
+            )
+            .output()
+            .unwrap()
+    };
+    let result = run("realplksr-2x");
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("Cannot read RealPLKSR model"));
+    assert!(!output.exists());
+
+    let result = run("lanczos3");
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let manifest = fs::read(output.join(compiler::manifest_name())).unwrap();
+    let result = run("realplksr-2x");
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("Cannot read RealPLKSR model"));
+    assert_eq!(
+        fs::read(output.join(compiler::manifest_name())).unwrap(),
+        manifest
+    );
+}
+
+#[test]
+#[ignore = "Requires the resources prepared by tools/prepare_ai.py"]
+fn realplksr_build_matches_reference_pixels_and_cached_build_needs_no_model() {
+    let fixture = fixture();
+    let root = fixture.0.join("game");
+    let source = image::RgbaImage::from_fn(17, 13, |x, y| {
+        image::Rgba([
+            u8::try_from((x * 17 + y * 3) % 256).unwrap(),
+            u8::try_from((x * 5 + y * 19) % 256).unwrap(),
+            u8::try_from((x * 11 + y * 7) % 256).unwrap(),
+            255,
+        ])
+    });
+    source.save(root.join("gfx/test.png")).unwrap();
+    write(
+        &root,
+        "interface/example.gfx",
+        "spriteTypes = { spriteType = { name = GFX_test texturefile = \"gfx/test.png\" } }",
+    );
+    let profile = Profile {
+        scale: Scale::try_from(2.0).unwrap(),
+        textures: options(),
+        ..Default::default()
+    };
+    let control = Control::default();
+    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let output = fixture.0.join("mod");
+    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    assert_eq!(report.textures, 1);
+    assert_eq!(report.cache_hits, 0);
+    let png = output.join("gfx/test_scaled.png");
+    let bytes = fs::read(&png).unwrap();
+    let image = textures::decode(&bytes).unwrap();
+    assert_eq!(image.dimensions(), (34, 26));
+    // Независимый эталон Python ONNX Runtime; проверяем именно результат сборки.
+    for ((x, y), expected) in [
+        ((0, 0), [0, 0, 0]),
+        ((33, 0), [15, 79, 170]),
+        ((0, 25), [39, 219, 83]),
+        ((33, 25), [67, 71, 0]),
+        ((16, 12), [151, 151, 127]),
+        ((9, 8), [82, 96, 73]),
+    ] {
+        assert!(
+            image.get_pixel(x, y).0[..3]
+                .iter()
+                .zip(expected)
+                .all(|(&a, b)| a.abs_diff(b) <= 1)
+        );
+    }
+    let classical = textures::resize(
+        &source,
+        34,
+        26,
+        &TextureOptions {
+            algorithm: Algorithm::Lanczos3,
+            ..options()
+        },
+    )
+    .unwrap();
+    assert_ne!(image, classical);
+
+    let saved = fixture.0.join("profile.toml");
+    profile.save(&saved).unwrap();
+    // Новый процесс исключает переиспользование уже загруженной сессии модели.
+    let cached = std::process::Command::new(env!("CARGO_BIN_EXE_stellaris-ui-scaler"))
+        .args(["build", "--game"])
+        .arg(&root)
+        .arg("--profile")
+        .arg(&saved)
+        .arg("--output")
+        .arg(&output)
+        .env(
+            "STELLARIS_UI_SCALER_AI_DIR",
+            fixture.0.join("missing-model"),
+        )
+        .output()
+        .unwrap();
+    assert!(
+        cached.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cached.stderr)
+    );
+    let report: serde_json::Value = serde_json::from_slice(&cached.stdout).unwrap();
+    assert_eq!(report["cache_hits"], 1);
+    assert_eq!(fs::read(png).unwrap(), bytes);
+}
+
+#[test]
 #[ignore = "Requires the resources prepared by tools/prepare_ai.py"]
 fn realplksr_frames_alpha_and_arbitrary_scales_match_individual_processing() {
     use image::GenericImageView;

@@ -2,8 +2,9 @@ use std::{
     borrow::Cow,
     collections::BTreeMap,
     fs,
-    io::Read,
+    io::{BufReader, Read},
     path::{Component, Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 use anyhow::{Context, Result, ensure};
@@ -17,10 +18,15 @@ pub(crate) const RESOURCE_DIRECTORIES: &[&str] = &[
     "localisation",
 ];
 
+type SharedArchive = Arc<Mutex<zip::ZipArchive<BufReader<fs::File>>>>;
+
 #[derive(Debug, Clone)]
 pub enum Source {
     File(PathBuf),
-    Archive { path: PathBuf, member: String },
+    Archive {
+        archive: SharedArchive,
+        member: String,
+    },
 }
 #[derive(Debug, Clone)]
 pub struct Installation {
@@ -59,11 +65,13 @@ impl Installation {
             if path.extension().is_none_or(|e| e != "zip") {
                 continue;
             }
-            let mut zip = zip::ZipArchive::new(fs::File::open(&path)?)
+            let zip = zip::ZipArchive::new(BufReader::new(fs::File::open(&path)?))
                 .with_context(|| format!("Cannot index {}", path.display()))?;
+            let metadata = zip.metadata();
+            let archive = Arc::new(Mutex::new(zip));
             archives += 1;
-            for i in 0..zip.len() {
-                let member = zip.by_index(i)?;
+            for i in 0..metadata.len() {
+                let member = metadata.entry(i)?;
                 let name = member.name()?;
                 let key = normalize_reference(&name);
                 if member.is_dir() || safe_relative(&key).is_err() {
@@ -76,7 +84,7 @@ impl Installation {
                     resources
                         .entry(key.into_owned())
                         .or_insert_with(|| Source::Archive {
-                            path: path.clone(),
+                            archive: Arc::clone(&archive),
                             member: name.into_owned(),
                         });
                 }
@@ -126,15 +134,20 @@ impl Installation {
             .with_context(|| format!("Missing game resource: {relative}"))?;
         match source {
             Source::File(path) => fs::read(path).with_context(|| format!("Cannot read {relative}")),
-            Source::Archive { path, member } => {
-                let mut zip = zip::ZipArchive::new(fs::File::open(path)?)?;
+            Source::Archive { archive, member } => {
+                // Один каталог ZIP и файловый буфер переиспользуются всеми ресурсами архива.
+                let mut zip = archive
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Archive lock poisoned"))?;
                 let mut entry = zip.by_name(member)?;
                 ensure!(
                     entry.size() <= 256 * 1024 * 1024,
                     "Archive entry too large: {member}"
                 );
-                let mut bytes = Vec::new();
+                let mut bytes = Vec::with_capacity(usize::try_from(entry.size())?);
                 entry.read_to_end(&mut bytes)?;
+                drop(entry);
+                drop(zip);
                 Ok(bytes)
             }
         }

@@ -29,6 +29,10 @@ pub struct TexturePolicy {
 }
 
 impl TexturePolicy {
+    pub(crate) fn uses_neural(self) -> bool {
+        self.scale.get() > 1.0 && self.processing(None).options.algorithm == Algorithm::RealPlksr2x
+    }
+
     pub(crate) fn processing(self, features: Option<&ImageFeatures>) -> TextureProcessing {
         let mut options = self.options;
         let recommendation = self.selection.resolve(features);

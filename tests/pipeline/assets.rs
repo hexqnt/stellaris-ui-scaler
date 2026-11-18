@@ -125,6 +125,7 @@ fn resource_walk_rejects_root_and_nested_symbolic_links() {
 
 #[test]
 fn dlc_resources_are_resolved_without_extracting_archives() {
+    use rayon::prelude::*;
     use std::io::Write;
     let fixture = fixture();
     let root = fixture.0.join("game");
@@ -147,16 +148,23 @@ fn dlc_resources_are_resolved_without_extracting_archives() {
     let game = Installation::open(&root).unwrap();
     assert_eq!(game.archives, 1);
     assert_eq!(game.read("gfx/dlc/asset.txt").unwrap(), b"DLC resource");
-    for (path, expected) in [
+    let cases = [
         ("gfx/dlc/upper.txt", "Uppercase resource"),
         ("GFX/DLC/UPPER.TXT", "Uppercase resource"),
         ("gfx/dlc/backslash.txt", "Backslash resource"),
         ("gfx/dlc/фон.txt", "Unicode resource"),
-    ] {
+    ];
+    for (path, expected) in cases {
         assert!(game.contains(path), "{path}");
         assert_eq!(game.text(path).unwrap(), expected);
     }
     assert!(!game.contains("gfx/../outside.txt"));
     assert!(game.read("gfx/../outside.txt").is_err());
     assert!(!root.join("gfx/dlc").exists());
+    let cloned = game.clone();
+    (0..64).into_par_iter().for_each(|index| {
+        let installation = if index % 2 == 0 { &game } else { &cloned };
+        let (path, expected) = cases[index % cases.len()];
+        assert_eq!(installation.text(path).unwrap(), expected);
+    });
 }
