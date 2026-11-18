@@ -135,7 +135,7 @@ algorithm = "lanczos3"
 algorithm = "lanczos3"
 
 [directories."gfx/interface/icons/relics"]
-algorithm = "lanczos3"
+algorithm = "realplksr_2x"
 
 [directories."gfx/interface/intel"]
 algorithm = "realplksr_2x"
@@ -166,6 +166,15 @@ algorithm = "catmull_rom"
 
 [directories."gfx/interface/social"]
 algorithm = "catmull_rom"
+
+[directories."gfx/interface/subjugation/specialist_perks"]
+algorithm = "realplksr_2x"
+
+[directories."gfx/interface/subjugation/specialist_tiers"]
+algorithm = "realplksr_2x"
+
+[directories."gfx/interface/subjugation/specialists_icons"]
+algorithm = "realplksr_2x"
 
 [directories."gfx/interface/system"]
 algorithm = "catmull_rom"
@@ -1215,7 +1224,7 @@ algorithm = "catmull_rom"
 algorithm = "catmull_rom"
 
 [assets."gfx/interface/frontend/gamesetup_delete.dds"]
-algorithm = "catmull_rom"
+algorithm = "realplksr_2x"
 
 [assets."gfx/interface/frontend/select_button.dds"]
 algorithm = "catmull_rom"
@@ -1302,7 +1311,10 @@ algorithm = "lanczos3"
 algorithm = "lanczos3"
 
 [assets."gfx/interface/icons/research_icon.dds"]
-algorithm = "catmull_rom"
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/planetview/army_bg.dds"]
+algorithm = "realplksr_2x"
 
 [assets."gfx/interface/sliders/horizontal_left_button.dds"]
 algorithm = "realplksr_2x"
@@ -1322,7 +1334,46 @@ algorithm = "realplksr_2x"
 [assets."gfx/interface/subjugation/loyalty_icon_large.dds"]
 algorithm = "realplksr_2x"
 
+[assets."gfx/interface/subjugation/specialist_subject_tier_box.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/subjugation/subjugation_transition_arrows.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/subjugation/terms_dropdown_arrow.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/army_power.dds"]
+algorithm = "realplksr_2x"
+
 [assets."gfx/interface/system/claim_management_mapicons.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/foreign_claim.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/hover_indicator.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/hover_indicator_disabled.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/icon_128.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/icon_16.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/icon_32.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/icon_4.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/icon_64.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/icon_8.dds"]
 algorithm = "realplksr_2x"
 
 [assets."gfx/interface/system/map_gui_frame.dds"]

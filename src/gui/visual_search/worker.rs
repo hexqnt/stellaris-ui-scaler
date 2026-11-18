@@ -13,14 +13,14 @@ use rayon::prelude::*;
 use super::{
     PAGE_SIZE,
     descriptor::Query,
-    index::{Hit, Index},
+    index::{AssetPreview, Hit, Index},
 };
 use crate::{
     compiler::{BuildPlan, Control},
     config::Profile,
 };
 
-type Page = Vec<(Hit, RgbaImage)>;
+type Page = Vec<(Hit, AssetPreview)>;
 
 pub(super) struct SearchResult {
     pub index: Arc<Index>,
@@ -174,7 +174,7 @@ fn thumbnails(hits: &[Hit], plan: &BuildPlan, control: &Control) -> Result<Page>
     hits.par_iter()
         .map(|&hit| {
             control.check()?;
-            Ok((hit, hit.thumbnail(plan)?))
+            Ok((hit, hit.preview(plan)?))
         })
         .collect()
 }

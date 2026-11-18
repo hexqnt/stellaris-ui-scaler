@@ -221,7 +221,7 @@ fn scrolling_to_the_bottom_requests_the_next_page() {
             ..Default::default()
         };
         ctx.run_ui(input, |ui| {
-            let response = search.results(ui, &plan, None, false);
+            let response = search.results(ui, &plan, &studio.profile, None, false);
             if response.load_more {
                 search.load_next_page(&ctx, Arc::clone(&plan));
             }
@@ -302,4 +302,47 @@ fn failed_page_keeps_its_position_and_can_be_retried() {
     assert!(!search.paging_paused);
     assert_eq!(search.rows.len(), PAGE_SIZE * 2);
     assert_eq!(search.rows[PAGE_SIZE].hit.asset, PAGE_SIZE);
+}
+
+#[test]
+fn loaded_results_use_source_pixels_for_the_current_auto_algorithm() {
+    use crate::config::{Algorithm, Scale};
+
+    let (temp, mut studio, color) = workspace(1);
+    crate::test_images::flat_graphic()
+        .save(temp.0.join("icon.png"))
+        .unwrap();
+    let asset = &mut Arc::get_mut(studio.plan.as_mut().unwrap())
+        .unwrap()
+        .textures[0];
+    asset.width = 64;
+    asset.height = 64;
+    studio.profile = Profile {
+        auto_algorithm: true,
+        scale: Scale::try_from(2.0).unwrap(),
+        ..Profile::default()
+    };
+    let ctx = egui::Context::default();
+    let plan = Arc::clone(studio.plan.as_ref().unwrap());
+    studio.visual_search.start(
+        &ctx,
+        Arc::clone(&plan),
+        studio.profile.clone(),
+        Input::Image(color),
+    );
+    finish(&mut studio.visual_search, &ctx);
+    assert_eq!(studio.visual_search.rows.len(), 1);
+    let row = &studio.visual_search.rows[0];
+    let asset = &plan.textures[row.hit.asset];
+    assert_eq!(
+        asset.processing(&studio.profile, None).options.algorithm,
+        Algorithm::CatmullRom
+    );
+    assert_eq!(
+        asset
+            .processing(&studio.profile, Some(&row.features))
+            .options
+            .algorithm,
+        Algorithm::Mitchell
+    );
 }

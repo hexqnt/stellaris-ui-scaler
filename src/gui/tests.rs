@@ -799,3 +799,31 @@ fn preview_results_are_visible_before_completion_and_keep_candidate_indices() {
     assert!(studio.receiver.is_none());
     assert_eq!(studio.images[2].1.handle().unwrap().id(), ready);
 }
+
+#[test]
+fn opening_a_search_result_reveals_hidden_assets_and_preserves_matching_filters() {
+    let ctx = egui::Context::default();
+    let mut studio = workspace(&ctx);
+    let path = studio.plan.as_ref().unwrap().textures[0].path.clone();
+    studio.tab = WorkspaceTab::Fonts;
+    studio.filter = "missing-resource".into();
+    studio.category = Some(Category::Background);
+    studio.refresh_asset_filter();
+    assert_eq!(studio.asset_search.matches, []);
+    studio.open_asset(0);
+    assert!(studio.tab == WorkspaceTab::Textures);
+    assert_eq!(studio.filter, "");
+    assert_eq!(studio.category, None);
+    assert_eq!(studio.selected, Some(0));
+    assert!(
+        matches!(&studio.rule_selection, Some(Selection::Asset(selected)) if *selected == path)
+    );
+    assert_eq!(studio.asset_search.matches[0].0, 0);
+
+    studio.filter = "very_long".into();
+    studio.category = Some(Category::Icon);
+    studio.refresh_asset_filter();
+    studio.open_asset(0);
+    assert_eq!(studio.filter, "very_long");
+    assert_eq!(studio.category, Some(Category::Icon));
+}

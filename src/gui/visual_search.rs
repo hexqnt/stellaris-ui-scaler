@@ -11,8 +11,11 @@ use std::sync::Arc;
 use eframe::egui::{self, TextureHandle};
 use image::RgbaImage;
 
-use super::{Selection, Studio};
-use crate::{compiler::BuildPlan, config::Profile};
+use super::Studio;
+use crate::{
+    compiler::BuildPlan,
+    config::{ImageFeatures, Profile},
+};
 use index::{Hit, Index};
 use worker::{Completed, Input, Job};
 
@@ -21,6 +24,7 @@ const PAGE_SIZE: usize = 20;
 struct ResultRow {
     hit: Hit,
     texture: TextureHandle,
+    features: ImageFeatures,
 }
 
 #[derive(Default)]
@@ -110,8 +114,9 @@ impl VisualSearch {
                     Completed::Page(page) => page,
                 };
                 self.rows
-                    .extend(page.into_iter().map(|(hit, thumbnail)| ResultRow {
-                        texture: Self::upload(ctx, &thumbnail),
+                    .extend(page.into_iter().map(|(hit, preview)| ResultRow {
+                        texture: Self::upload(ctx, &preview.image),
+                        features: preview.features,
                         hit,
                     }));
                 self.status = format!(
@@ -139,10 +144,7 @@ impl Studio {
             .visual_search
             .show(ctx, plan, &self.profile, self.selected, busy)
         {
-            self.selected = Some(index);
-            self.rule_selection = Some(Selection::Asset(plan.textures[index].path.clone()));
-            self.invalidate_preview();
-            self.select_current_algorithm();
+            self.open_asset(index);
         }
     }
 }

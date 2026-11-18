@@ -5,6 +5,29 @@ use crate::config::{Algorithm, Category};
 use super::{Selection, Studio, icons, theme};
 
 impl Studio {
+    pub(super) fn open_asset(&mut self, index: usize) {
+        let Some(asset) = self.plan.as_ref().and_then(|plan| plan.textures.get(index)) else {
+            return;
+        };
+        let path = asset.path.clone();
+        if !self
+            .asset_search
+            .matches
+            .iter()
+            .any(|&(candidate, _)| candidate == index)
+        {
+            self.filter.clear();
+            self.category = None;
+            self.refresh_asset_filter();
+        }
+        self.asset_tree.reveal(&path);
+        self.tab = super::WorkspaceTab::Textures;
+        self.selected = Some(index);
+        self.rule_selection = Some(Selection::Asset(path));
+        self.invalidate_preview();
+        self.select_current_algorithm();
+    }
+
     fn asset_search_field(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let id = egui::Id::unique("asset-search");
         let clear_with_escape = !self.filter.is_empty()

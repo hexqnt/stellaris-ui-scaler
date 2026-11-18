@@ -15,6 +15,14 @@ struct Node {
     open: Option<bool>,
 }
 
+#[derive(Default)]
+struct Interaction {
+    clicked: Option<Selection>,
+    reveal: Option<usize>,
+    reveal_rect: Option<egui::Rect>,
+    animating: bool,
+}
+
 impl Node {
     fn set_open(&mut self, open: bool) {
         self.open = Some(open);
@@ -28,7 +36,7 @@ impl Node {
         ui: &mut egui::Ui,
         profile: &Profile,
         selection: Option<&Selection>,
-        clicked: &mut Option<Selection>,
+        interaction: &mut Interaction,
     ) {
         let selected = match selection {
             Some(Selection::Directory(path) | Selection::Asset(path)) => path == &self.path,
@@ -80,12 +88,14 @@ impl Node {
         ui.push_id(&self.path, |ui| {
             if self.asset.is_some() {
                 ui.indent("asset", |ui| {
-                    if ui
+                    let response = ui
                         .add(egui::Button::selectable(selected, label).truncate())
-                        .on_hover_text(&self.path)
-                        .clicked()
-                    {
-                        *clicked = Some(Selection::Asset(self.path.clone()));
+                        .on_hover_text(&self.path);
+                    if self.asset == interaction.reveal && interaction.reveal.is_some() {
+                        interaction.reveal_rect = Some(response.rect);
+                    }
+                    if response.clicked() {
+                        interaction.clicked = Some(Selection::Asset(self.path.clone()));
                     }
                 });
             } else {
@@ -95,11 +105,12 @@ impl Node {
                     .open(self.open.take())
                     .show(ui, |ui| {
                         for child in self.children.values_mut() {
-                            child.show(ui, profile, selection, clicked);
+                            child.show(ui, profile, selection, interaction);
                         }
                     });
+                interaction.animating |= response.openness > 0.0 && response.openness < 1.0;
                 if response.header_response.on_hover_text(&self.path).clicked() {
-                    *clicked = Some(Selection::Directory(self.path.clone()));
+                    interaction.clicked = Some(Selection::Directory(self.path.clone()));
                 }
             }
         });
@@ -109,11 +120,13 @@ impl Node {
 #[derive(Default)]
 pub(super) struct AssetTree {
     roots: BTreeMap<String, Node>,
+    reveal: Option<usize>,
 }
 
 impl AssetTree {
     pub fn update(&mut self, assets: &[TextureAsset], matches: &[(usize, u32)]) {
         self.roots.clear();
+        self.reveal = None;
         for &(index, _) in matches {
             let path = &assets[index].path;
             let mut children = &mut self.roots;
@@ -133,11 +146,28 @@ impl AssetTree {
         }
     }
 
+    pub fn reveal(&mut self, path: &str) {
+        self.reveal = None;
+        let mut children = &mut self.roots;
+        for name in path.split('/') {
+            let Some(node) = children.get_mut(name) else {
+                return;
+            };
+            if node.path == path {
+                self.reveal = node.asset;
+                return;
+            }
+            node.open = Some(true);
+            children = &mut node.children;
+        }
+    }
+
     pub fn expand_all(&mut self) {
         self.set_open(true);
     }
 
     pub fn collapse_all(&mut self) {
+        self.reveal = None;
         self.set_open(false);
     }
 
@@ -153,11 +183,30 @@ impl AssetTree {
         profile: &Profile,
         selection: Option<&Selection>,
     ) -> Option<Selection> {
-        let mut clicked = None;
+        let mut interaction = Interaction {
+            reveal: self.reveal,
+            ..Interaction::default()
+        };
         for node in self.roots.values_mut() {
-            node.show(ui, profile, selection, &mut clicked);
+            node.show(ui, profile, selection, &mut interaction);
         }
-        clicked
+        if interaction.clicked.is_some() {
+            self.reveal = None;
+            return interaction.clicked;
+        }
+        if let Some(rect) = interaction.reveal_rect {
+            // Повторяем прокрутку до конца анимации папок, когда положение строки перестаёт меняться.
+            ui.scroll_to_rect_animation(
+                rect,
+                Some(egui::Align::Center),
+                egui::style::ScrollAnimation::none(),
+            );
+            if !interaction.animating {
+                self.reveal = None;
+            }
+            ui.ctx().request_repaint();
+        }
+        interaction.clicked
     }
 }
 
@@ -224,6 +273,17 @@ mod tests {
         assert_eq!(gfx.children["ab"].children["x.dds"].asset, Some(1));
         tree.collapse_all();
         assert_eq!(tree.roots["gfx"].children["a"].open, Some(false));
+        tree.reveal("gfx/a/b/y.dds");
+        assert_eq!(tree.reveal, Some(2));
+        assert_eq!(tree.roots["gfx"].open, Some(true));
+        assert_eq!(tree.roots["gfx"].children["a"].open, Some(true));
+        assert_eq!(
+            tree.roots["gfx"].children["a"].children["b"].open,
+            Some(true)
+        );
+        assert_eq!(tree.roots["gfx"].children["ab"].open, Some(false));
+        tree.collapse_all();
+        assert_eq!(tree.reveal, None);
         tree.expand_all();
         assert_eq!(
             tree.roots["gfx"].children["a"].children["b"].open,
@@ -234,5 +294,69 @@ mod tests {
         assert_eq!(a.children["b"].children["y.dds"].path, "gfx/a/b/y.dds");
         assert_eq!(a.children["b"].children["y.dds"].asset, Some(2));
         assert_eq!(tree.roots["gfx"].children.len(), 1);
+    }
+
+    #[test]
+    fn revealing_an_asset_scrolls_through_collapsed_ancestors() {
+        let ctx = egui::Context::default();
+        let assets: Vec<_> = (0..80)
+            .map(|i| TextureAsset {
+                path: format!("gfx/interface/icons/{i:03}.dds"),
+                width: 1,
+                height: 1,
+                frames: 1,
+                category: Category::Icon,
+                tiled: false,
+            })
+            .collect();
+        let mut tree = AssetTree::default();
+        tree.update(
+            &assets,
+            &(0..assets.len()).map(|i| (i, 0)).collect::<Vec<_>>(),
+        );
+        tree.collapse_all();
+        let selection = Selection::Asset(assets[79].path.clone());
+        let mut visible_target = false;
+        let mut offset = 0.0;
+        for frame in 0..16 {
+            if frame == 2 {
+                tree.reveal(&assets[79].path);
+            }
+            let mut viewport = egui::Rect::NOTHING;
+            let output = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(400.0, 220.0),
+                    )),
+                    time: Some(f64::from(frame) * 0.1),
+                    ..Default::default()
+                },
+                |ui| {
+                    let response = egui::ScrollArea::vertical()
+                        .max_height(140.0)
+                        .show(ui, |ui| {
+                            tree.show(ui, &Profile::default(), Some(&selection));
+                        });
+                    viewport = response.inner_rect;
+                    offset = response.state.clamped_offset().y;
+                },
+            );
+            if frame == 15 {
+                visible_target = output.shapes.iter().any(|shape| match &shape.shape {
+                    egui::Shape::Text(text) if text.galley.text().ends_with("079.dds") => {
+                        viewport.contains_rect(text.galley.rect.translate(text.pos.to_vec2()))
+                    }
+                    _ => false,
+                });
+            }
+            output.drop_without_applying_deltas();
+        }
+        assert!(
+            visible_target,
+            "The revealed asset should be inside the viewport"
+        );
+        assert!(offset > 0.0);
+        assert_eq!(tree.reveal, None);
     }
 }

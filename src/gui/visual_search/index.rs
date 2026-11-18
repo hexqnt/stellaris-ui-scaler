@@ -7,7 +7,7 @@ use rayon::prelude::*;
 use super::descriptor::{Descriptor, Query, Region};
 use crate::{
     compiler::{BuildPlan, Control},
-    config::Scale,
+    config::{ImageFeatures, Scale},
     textures,
 };
 
@@ -29,6 +29,11 @@ pub(super) struct Hit {
     pub frame: u32,
     pub region: Region,
     pub distance: f32,
+}
+
+pub(super) struct AssetPreview {
+    pub image: RgbaImage,
+    pub features: ImageFeatures,
 }
 
 impl Index {
@@ -140,8 +145,9 @@ impl Entry {
 }
 
 impl Hit {
-    pub fn thumbnail(&self, plan: &BuildPlan) -> Result<RgbaImage> {
-        let image = textures::decode(&plan.game.read(&plan.textures[self.asset].path)?)?;
+    pub fn preview(&self, plan: &BuildPlan) -> Result<AssetPreview> {
+        let asset = &plan.textures[self.asset];
+        let image = textures::decode(&plan.game.read(&asset.path)?)?;
         let r = self.region;
         ensure!(
             r.x + r.width <= image.width() && r.y + r.height <= image.height(),
@@ -153,12 +159,10 @@ impl Hit {
         let width = (f64::from(r.width) * ratio).round().max(1.0) as u32;
         let height = (f64::from(r.height) * ratio).round().max(1.0) as u32;
         let view = image.view(r.x, r.y, r.width, r.height);
-        Ok(imageops::resize(
-            &*view,
-            width,
-            height,
-            imageops::FilterType::Triangle,
-        ))
+        // Автовыбор использует всю исходную текстуру с её кадрами, а не уменьшенный фрагмент поиска.
+        let features = ImageFeatures::analyze(&image, asset.frames)?;
+        let image = imageops::resize(&*view, width, height, imageops::FilterType::Triangle);
+        Ok(AssetPreview { image, features })
     }
 }
 
