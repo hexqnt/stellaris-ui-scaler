@@ -23,7 +23,7 @@ fn render(
             events,
             ..Default::default()
         },
-        |ui| response = editor.show(ui, profile),
+        |ui| response = editor.show(ui, profile, &mut Picker::default()),
     );
     (output, response)
 }
@@ -125,7 +125,7 @@ fn table_with_long_names_and_paths_stays_within_the_viewport() {
                 ..Default::default()
             },
             |ui| {
-                editor.show(ui, &mut profile);
+                editor.show(ui, &mut profile, &mut Picker::default());
                 used = ui.min_rect();
             },
         )

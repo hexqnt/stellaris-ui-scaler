@@ -13,12 +13,14 @@ mod icons;
 mod layout;
 mod mod_details;
 mod mod_install;
+mod path_picker;
 mod preview;
 mod project;
 mod settings;
 mod source_mods;
 mod texture_rules;
 mod theme;
+mod visual_search;
 
 use std::{
     path::PathBuf,
@@ -97,6 +99,7 @@ struct Studio {
     built_mod: Option<PathBuf>,
     mods_directory: String,
     profile_path: String,
+    path_picker: path_picker::Picker<path_picker::Target>,
     profile: Profile,
     plan: Option<Arc<BuildPlan>>,
     selected: Option<usize>,
@@ -104,6 +107,7 @@ struct Studio {
     category: Option<Category>,
     asset_search: AssetSearch,
     asset_tree: AssetTree,
+    visual_search: visual_search::VisualSearch,
     rule_selection: Option<Selection>,
     preview_dirty: bool,
     preview_features: Option<crate::config::ImageFeatures>,
@@ -141,6 +145,7 @@ impl Studio {
             built_mod: None,
             mods_directory: String::new(),
             profile_path: "profiles/4k.toml".into(),
+            path_picker: path_picker::Picker::default(),
             profile,
             plan: None,
             selected: None,
@@ -148,6 +153,7 @@ impl Studio {
             category: None,
             asset_search: AssetSearch::default(),
             asset_tree: AssetTree::default(),
+            visual_search: visual_search::VisualSearch::default(),
             rule_selection: None,
             preview_dirty: false,
             preview_features: None,

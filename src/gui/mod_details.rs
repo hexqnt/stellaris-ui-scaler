@@ -5,7 +5,7 @@ use std::{
 
 use eframe::egui;
 
-use super::{Studio, WorkspaceTab, icons, mod_install, theme};
+use super::{Studio, WorkspaceTab, icons, mod_install, path_picker::Target, theme};
 
 impl Studio {
     fn picture_controls(&mut self, ui: &mut egui::Ui, width: f32) {
@@ -20,7 +20,7 @@ impl Studio {
                 .add(
                     egui::TextEdit::singleline(&mut picture)
                         .hint_text("Image path (optional)")
-                        .desired_width((width - 50.0).max(100.0)),
+                        .desired_width((width - 80.0).max(100.0)),
                 )
                 .on_hover_text(
                     "Saved in the profile; rebuild and reinstall to update the mod picture",
@@ -30,6 +30,14 @@ impl Studio {
                 self.profile.picture =
                     (!picture.is_empty()).then(|| PathBuf::from(picture.as_ref()));
             }
+            self.path_picker.button(
+                ui,
+                Target::Picture,
+                self.profile
+                    .picture
+                    .as_deref()
+                    .unwrap_or_else(|| Path::new("")),
+            );
             if ui.button("Clear").clicked() {
                 self.profile.picture = None;
             }
@@ -92,6 +100,8 @@ impl Studio {
                     egui::TextEdit::singleline(&mut self.mods_directory)
                         .hint_text("Absolute path to Stellaris user data/mod"),
                 );
+                self.path_picker
+                    .button(ui, Target::Mods, Path::new(self.mods_directory.trim()));
                 if ui
                     .add_enabled(
                         !self.mods_directory.trim().is_empty(),

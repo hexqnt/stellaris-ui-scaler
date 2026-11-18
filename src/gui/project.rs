@@ -7,7 +7,11 @@ use eframe::egui::{self, Vec2};
 
 use crate::{compiler, config::Profile};
 
-use super::{Completed, Event, Studio, icons, mod_install, settings, theme};
+use super::{
+    Completed, Event, Studio, icons, mod_install,
+    path_picker::{Picker, Target},
+    settings, theme,
+};
 
 impl Studio {
     pub(super) fn scale_controls(&mut self, ui: &mut egui::Ui) {
@@ -90,6 +94,16 @@ impl Studio {
         }
     }
     pub(super) fn game_path_field(&mut self, ui: &mut egui::Ui, width: f32) -> egui::Response {
+        ui.horizontal(|ui| {
+            let response = self.game_location_combo(ui, width);
+            self.path_picker
+                .button(ui, Target::Game, Path::new(self.game.trim()));
+            response
+        })
+        .inner
+    }
+
+    fn game_location_combo(&mut self, ui: &mut egui::Ui, width: f32) -> egui::Response {
         let input_rect = std::cell::Cell::new(egui::Rect::NOTHING);
         let padding = ui.spacing().button_padding;
         let input_width = (2.0_f32.mul_add(-padding.x, width)
@@ -144,12 +158,16 @@ impl Studio {
             )
             .changed();
         if changed {
-            self.source_mods_editor.reset();
-            self.invalidate_sources();
-            self.status = "Game installation changed; scan assets again".into();
+            self.game_changed();
             combo.response.mark_changed();
         }
         combo.response
+    }
+
+    pub(super) fn game_changed(&mut self) {
+        self.source_mods_editor.reset();
+        self.invalidate_sources();
+        self.status = "Game installation changed; scan assets again".into();
     }
 
     pub(super) fn find_game_button(&mut self, ui: &mut egui::Ui) {
@@ -203,6 +221,7 @@ impl Studio {
             self.status.push_str("; ");
             self.status.push_str(notice);
         }
+        self.visual_search = super::visual_search::VisualSearch::default();
         self.plan = Some(Arc::new(plan));
         self.refresh_asset_filter();
         self.selected = None;
@@ -232,7 +251,8 @@ impl Studio {
         }
     }
 
-    fn invalidate_sources(&mut self) {
+    pub(super) fn invalidate_sources(&mut self) {
+        self.visual_search = super::visual_search::VisualSearch::default();
         self.plan = None;
         self.selected = None;
         self.rule_selection = None;
@@ -259,11 +279,14 @@ impl Studio {
                 ui.add_enabled_ui(!busy, |ui| {
                     theme::section(ui, "Game installation");
                     ui.horizontal(|ui| {
-                        let width = (ui.available_width() - 100.0).max(120.0);
+                        let width = (ui.available_width() - 148.0).max(120.0);
                         self.game_path_field(ui, width);
                         self.find_game_button(ui);
                     });
-                    if self.source_mods_editor.show(ui, &mut self.profile) {
+                    if self
+                        .source_mods_editor
+                        .show(ui, &mut self.profile, &mut self.path_picker)
+                    {
                         self.invalidate_sources();
                         self.status = "Source mods changed; scan assets again".into();
                     }
@@ -278,7 +301,13 @@ impl Studio {
                     }
                     ui.separator();
                     theme::section(ui, "Profile");
-                    path_field(ui, &mut self.profile_path, "Path to a TOML profile");
+                    path_field(
+                        ui,
+                        &mut self.profile_path,
+                        "Path to a TOML profile",
+                        &mut self.path_picker,
+                        Target::Profile,
+                    );
                     ui.horizontal(|ui| {
                         if ui.add(icons::button(icons::LOAD, "Load profile")).clicked() {
                             self.load_profile();
@@ -286,10 +315,21 @@ impl Studio {
                         if ui.add(icons::button(icons::SAVE, "Save profile")).clicked() {
                             self.save_profile();
                         }
+                        self.path_picker.button(
+                            ui,
+                            Target::SaveProfile,
+                            Path::new(self.profile_path.trim()),
+                        );
                     });
                     ui.separator();
                     theme::section(ui, "Output directory");
-                    path_field(ui, &mut self.output, "Generated mod directory");
+                    path_field(
+                        ui,
+                        &mut self.output,
+                        "Generated mod directory",
+                        &mut self.path_picker,
+                        Target::Output,
+                    );
                     ui.small("The generated mod stays in this directory after installation.");
                     ui.separator();
                     theme::section(ui, "UI scaling");
@@ -305,10 +345,20 @@ impl Studio {
     }
 }
 
-fn path_field(ui: &mut egui::Ui, value: &mut String, hint: &str) {
-    ui.add(
-        egui::TextEdit::singleline(value)
-            .hint_text(hint)
-            .desired_width(ui.available_width()),
-    );
+fn path_field(
+    ui: &mut egui::Ui,
+    value: &mut String,
+    hint: &str,
+    picker: &mut Picker<Target>,
+    target: Target,
+) {
+    ui.horizontal(|ui| {
+        let width = (ui.available_width() - 48.0).max(40.0);
+        ui.add(
+            egui::TextEdit::singleline(value)
+                .hint_text(hint)
+                .desired_width(width),
+        );
+        picker.button(ui, target, Path::new(value.trim()));
+    });
 }

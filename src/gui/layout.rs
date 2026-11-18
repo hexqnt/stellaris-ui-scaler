@@ -1,6 +1,8 @@
+use std::path::Path;
+
 use eframe::egui::{self, Align, Color32, Layout, RichText, Vec2};
 
-use super::{Selection, Studio, WorkspaceTab, icons, theme};
+use super::{Selection, Studio, WorkspaceTab, icons, path_picker::Target, theme};
 
 impl Studio {
     fn header(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, busy: bool) {
@@ -18,6 +20,11 @@ impl Studio {
                             ui.add(
                                 egui::TextEdit::singleline(&mut self.profile_path)
                                     .desired_width(180.0),
+                            );
+                            self.path_picker.button(
+                                ui,
+                                Target::Profile,
+                                Path::new(self.profile_path.trim()),
                             );
                             if ui.add(icons::button(icons::LOAD, "Load")).clicked() {
                                 self.load_profile();
@@ -42,7 +49,7 @@ impl Studio {
                         let game_width = (ui.available_width() * 0.3).clamp(300.0, 400.0);
                         let output_width = 200.0;
                         ui.weak("Game");
-                        self.game_path_field(ui, game_width);
+                        self.game_path_field(ui, game_width - 48.0);
                         self.find_game_button(ui);
                         self.scan_button(ui, ctx);
                         ui.separator();
@@ -51,6 +58,8 @@ impl Studio {
                             egui::TextEdit::singleline(&mut self.output)
                                 .desired_width(output_width),
                         );
+                        self.path_picker
+                            .button(ui, Target::Output, Path::new(self.output.trim()));
                         ui.separator();
                         self.scale_controls(ui);
                     });
@@ -282,6 +291,8 @@ impl Studio {
                     });
             }
         }
+        self.visual_search_window(&ctx, busy);
+        self.path_dialog(&ctx);
         if self.preview_dirty
             && self.receiver.is_none()
             && self.selected.is_some()

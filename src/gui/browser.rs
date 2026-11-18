@@ -47,6 +47,12 @@ impl Studio {
     }
     pub(super) fn assets_panel(&mut self, ui: &mut egui::Ui, busy: bool) {
         let previous_selection = self.selected;
+        if ui
+            .add_enabled(self.plan.is_some(), egui::Button::new("Search by image…"))
+            .clicked()
+        {
+            self.visual_search.open = true;
+        }
         let mut changed = self.asset_search_field(ui).changed();
         egui::ComboBox::from_id_salt("asset-category")
             .width(ui.available_width())

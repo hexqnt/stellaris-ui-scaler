@@ -10,6 +10,8 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::{config::Profile, source_mods};
 
+use super::path_picker::{Picker, Target};
+
 enum ScanNotice {
     ModsChanged {
         changes: source_mods::ModListMismatch,
@@ -85,7 +87,12 @@ impl Editor {
         self.notice.as_ref().map(ScanNotice::message)
     }
 
-    pub(super) fn show(&mut self, ui: &mut egui::Ui, profile: &mut Profile) -> bool {
+    pub(super) fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        profile: &mut Profile,
+        picker: &mut Picker<Target>,
+    ) -> bool {
         let mut changed = false;
         ui.add_space(12.0);
         ui.strong("Source UI mods");
@@ -111,26 +118,38 @@ impl Editor {
                 });
         }
         ui.collapsing("User data directory", |ui| {
-            let mut directory = profile
-                .auto_source_mods
-                .as_ref()
-                .and_then(|settings| settings.user_data_dir.as_deref())
-                .map_or(Cow::Borrowed(""), Path::to_string_lossy);
-            if ui
-                .add(
-                    egui::TextEdit::singleline(&mut directory)
-                        .hint_text("Auto")
-                        .desired_width(540.0),
-                )
-                .changed()
-            {
-                let directory = (!directory.is_empty()).then(|| PathBuf::from(directory.as_ref()));
-                profile
+            ui.horizontal(|ui| {
+                let mut directory = profile
                     .auto_source_mods
-                    .get_or_insert_default()
-                    .user_data_dir = directory;
-                changed = true;
-            }
+                    .as_ref()
+                    .and_then(|settings| settings.user_data_dir.as_deref())
+                    .map_or(Cow::Borrowed(""), Path::to_string_lossy);
+                if ui
+                    .add(
+                        egui::TextEdit::singleline(&mut directory)
+                            .hint_text("Auto")
+                            .desired_width(540.0),
+                    )
+                    .changed()
+                {
+                    let directory =
+                        (!directory.is_empty()).then(|| PathBuf::from(directory.as_ref()));
+                    profile
+                        .auto_source_mods
+                        .get_or_insert_default()
+                        .user_data_dir = directory;
+                    changed = true;
+                }
+                picker.button(
+                    ui,
+                    Target::UserData,
+                    profile
+                        .auto_source_mods
+                        .as_ref()
+                        .and_then(|settings| settings.user_data_dir.as_deref())
+                        .unwrap_or_else(|| Path::new("")),
+                );
+            });
             ui.small("Uses dlc_load.json from the launcher; it may reflect a previous launch.");
         });
         changed
