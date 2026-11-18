@@ -372,3 +372,103 @@ fn inherited_texture_scale_matches_preview_build_and_cache() {
         (16, 8)
     );
 }
+
+#[test]
+fn streaming_preview_emits_source_first_and_runs_candidates_concurrently() {
+    use compiler::{PreviewEvent, PreviewSession};
+    use std::sync::{
+        Mutex,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    };
+    use std::time::Duration;
+
+    let fixture = fixture();
+    let control = Control::default();
+    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let algorithms = [Algorithm::Lanczos3, Algorithm::CatmullRom];
+    let profile = Profile::default();
+    let source_seen = AtomicBool::new(false);
+    let results = Mutex::new(Vec::new());
+    let (sender, receiver) = mpsc::channel();
+    let receiver = Mutex::new(receiver);
+    let parallel = rayon::current_num_threads() > 1
+        && std::thread::available_parallelism().is_ok_and(|count| count.get() > 1);
+    PreviewSession::default()
+        .render(
+            &plan,
+            &profile,
+            &plan.textures[0],
+            &algorithms,
+            &control,
+            &|event| match event {
+                PreviewEvent::Source { image, .. } => {
+                    assert_eq!(image.dimensions(), (8, 4));
+                    assert!(!source_seen.swap(true, Ordering::Relaxed));
+                }
+                PreviewEvent::Candidate { index, image } => {
+                    assert!(source_seen.load(Ordering::Relaxed));
+                    // Первый обработчик не должен блокировать доставку второго результата.
+                    if index == 0 && parallel {
+                        receiver
+                            .lock()
+                            .unwrap()
+                            .recv_timeout(Duration::from_secs(5))
+                            .unwrap();
+                    } else {
+                        sender.send(()).unwrap();
+                    }
+                    results.lock().unwrap().push((index, image.unwrap()));
+                }
+            },
+        )
+        .unwrap();
+    let mut results = results.into_inner().unwrap();
+    results.sort_unstable_by_key(|(index, _)| *index);
+    let collected =
+        compiler::preview_candidates(&plan, &profile, &plan.textures[0], &algorithms, &control)
+            .unwrap();
+    for ((index, actual), (name, expected)) in results.iter().zip(&collected[1..]) {
+        assert_eq!(
+            name,
+            &format!("{}: {}", index + 1, algorithms[*index].name())
+        );
+        assert_eq!(actual, expected);
+    }
+    assert_eq!(results.len(), algorithms.len());
+}
+
+#[test]
+fn streaming_preview_cancellation_after_source_stops_candidates() {
+    use compiler::{PreviewEvent, PreviewSession};
+    let fixture = fixture();
+    let control = Control::default();
+    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let session = PreviewSession::default();
+    assert!(
+        session
+            .render(
+                &plan,
+                &Profile::default(),
+                &plan.textures[0],
+                &[Algorithm::Lanczos3, Algorithm::CatmullRom],
+                &control,
+                &|event| {
+                    assert!(matches!(event, PreviewEvent::Source { .. }));
+                    control.cancel();
+                },
+            )
+            .is_err()
+    );
+    // Отмена запроса не делает сохранённую сессию непригодной для следующего превью.
+    session
+        .render(
+            &plan,
+            &Profile::default(),
+            &plan.textures[0],
+            &[],
+            &Control::default(),
+            &|_| {},
+        )
+        .unwrap();
+}

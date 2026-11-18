@@ -1,9 +1,9 @@
-use std::path::Path;
+use std::{num::NonZeroUsize, path::Path};
 
 use anyhow::Result;
 use rayon::prelude::*;
 
-use crate::{config::Profile, textures};
+use crate::{config::Profile, parallelism::CpuBudget, textures};
 
 use super::{
     BuildPlan, Control, Progress, ProgressStage, TextureAsset, output, texture_cache::TextureCache,
@@ -25,7 +25,12 @@ fn working_bytes(asset: &TextureAsset, profile: &Profile) -> Result<u64> {
     let sh = u64::from(asset.height + source_padding);
     let tw = u64::from(width + target_padding);
     let th = u64::from(height + target_padding);
-    Ok((sw * sh).max(tw * sh).max(tw * th) * 64)
+    let mut pixels = (sw * sh).max(tw * sh).max(tw * th);
+    if asset.options(profile).algorithm == crate::config::Algorithm::RealPlksr2x {
+        // Нативный результат сети может быть больше конечного изображения при масштабе меньше двух.
+        pixels = pixels.max(sw * sh * 4);
+    }
+    Ok(pixels * 64)
 }
 
 fn batch_len(assets: &[TextureAsset], profile: &Profile, concurrency: usize) -> Result<usize> {
@@ -50,7 +55,8 @@ pub(super) fn compile(
     control: &Control,
     progress: &mut dyn FnMut(Progress),
 ) -> Result<usize> {
-    let concurrency = rayon::current_num_threads().min(8);
+    let budget = CpuBudget::current();
+    let concurrency = budget.threads().min(plan.textures.len().max(1));
     // Ограничиваем также число рабочих потоков: их аллокаторы удерживают промежуточные буферы.
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(concurrency)
@@ -58,10 +64,21 @@ pub(super) fn compile(
     let mut remaining = plan.textures.as_slice();
     let mut completed = 0;
     let mut cache_hits = 0;
+    let mut processors = Vec::new();
     while !remaining.is_empty() {
         control.check()?;
         let count = batch_len(remaining, profile, concurrency)?;
         let (batch, rest) = remaining.split_at(count);
+        let tasks = NonZeroUsize::new(count).unwrap_or(NonZeroUsize::MIN);
+        let neural_threads = budget.per_task(tasks);
+        // Бюджет CPU делится между активными задачами. Сессии сохраняются при неизменном бюджете; лишние освобождаются при уменьшении партии.
+        processors.truncate(count);
+        processors.resize_with(count, || {
+            textures::Processor::with_neural_threads(neural_threads)
+        });
+        for processor in &mut processors {
+            processor.set_neural_threads(neural_threads);
+        }
         // Дисковые операции остаются последовательными; CPU обрабатывает ограниченную партию.
         let pending = batch
             .iter()
@@ -80,9 +97,10 @@ pub(super) fn compile(
         let results: Vec<_> = pool.install(|| {
             pending
                 .into_par_iter()
-                .map(|texture| {
+                .zip(&processors)
+                .map(|(texture, processor)| {
                     control.check()?;
-                    texture.process()
+                    texture.process(processor, control)
                 })
                 .collect()
         });

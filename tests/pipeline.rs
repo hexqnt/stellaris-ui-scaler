@@ -18,6 +18,8 @@ mod fonts_tests;
 mod geometry_tests;
 #[path = "pipeline/layout.rs"]
 mod layout_tests;
+#[path = "pipeline/neural.rs"]
+mod neural_tests;
 #[path = "pipeline/output.rs"]
 mod output_tests;
 #[path = "pipeline/pdx.rs"]

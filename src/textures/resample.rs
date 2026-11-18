@@ -43,14 +43,42 @@ struct Weights {
     values: Vec<f32>,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum Filter {
+    Nearest,
+    Bilinear,
+    CatmullRom,
+    Mitchell,
+    Lanczos2,
+    Lanczos3,
+}
+
+impl TryFrom<Algorithm> for Filter {
+    type Error = anyhow::Error;
+
+    fn try_from(algorithm: Algorithm) -> Result<Self> {
+        Ok(match algorithm {
+            Algorithm::Nearest => Self::Nearest,
+            Algorithm::Bilinear => Self::Bilinear,
+            Algorithm::CatmullRom => Self::CatmullRom,
+            Algorithm::Mitchell => Self::Mitchell,
+            Algorithm::Lanczos2 => Self::Lanczos2,
+            Algorithm::Lanczos3 => Self::Lanczos3,
+            Algorithm::RealPlksr2x => {
+                anyhow::bail!("RealPLKSR requires the neural texture processor")
+            }
+        })
+    }
+}
+
 impl Weights {
-    fn new(source: u32, target: u32, algorithm: Algorithm) -> Self {
+    fn new(source: u32, target: u32, algorithm: Filter) -> Self {
         let ratio = source as f32 / target as f32;
         let filter_scale = ratio.max(1.0);
         let radius = match algorithm {
-            Algorithm::Nearest => 0.5,
-            Algorithm::Bilinear => 1.0,
-            Algorithm::Lanczos3 => 3.0,
+            Filter::Nearest => 0.5,
+            Filter::Bilinear => 1.0,
+            Filter::Lanczos3 => 3.0,
             _ => 2.0,
         } * filter_scale;
         let mut weights = Self {
@@ -60,7 +88,7 @@ impl Weights {
         for i in 0..target {
             let start = weights.values.len();
             let center = (i as f32 + 0.5) * ratio - 0.5;
-            let source_start = if algorithm == Algorithm::Nearest {
+            let source_start = if algorithm == Filter::Nearest {
                 weights.values.push(1.0);
                 center.round().clamp(0.0, (source - 1) as f32) as usize
             } else {
@@ -99,7 +127,7 @@ impl Weights {
 
 /// # Errors
 /// Возвращает ошибку недопустимых размеров изображения.
-pub fn resize(
+pub(super) fn resize(
     source: &RgbaImage,
     width: u32,
     height: u32,
@@ -126,6 +154,7 @@ impl<'a> Resampler<'a> {
     ) -> Result<Self> {
         let (sw, sh) = source_size;
         let (width, height) = target_size;
+        let filter = Filter::try_from(options.algorithm)?;
         check_dimensions(width, height)?;
         ensure!(
             sw > 0
@@ -137,8 +166,8 @@ impl<'a> Resampler<'a> {
         Ok(Self {
             source_size,
             target_size,
-            horizontal: Weights::new(sw, width, options.algorithm),
-            vertical: Weights::new(sh, height, options.algorithm),
+            horizontal: Weights::new(sw, width, filter),
+            vertical: Weights::new(sh, height, filter),
             options,
         })
     }
@@ -293,19 +322,19 @@ fn sinc(x: f32) -> f32 {
         (PI * x).sin() / (PI * x)
     }
 }
-fn kernel(x: f32, algorithm: Algorithm) -> f32 {
+fn kernel(x: f32, algorithm: Filter) -> f32 {
     let x = x.abs();
     match algorithm {
-        Algorithm::Nearest => {
+        Filter::Nearest => {
             if x <= 0.5 {
                 1.0
             } else {
                 0.0
             }
         }
-        Algorithm::Bilinear => (1.0 - x).max(0.0),
-        Algorithm::Lanczos2 | Algorithm::Lanczos3 => {
-            let radius = if algorithm == Algorithm::Lanczos2 {
+        Filter::Bilinear => (1.0 - x).max(0.0),
+        Filter::Lanczos2 | Filter::Lanczos3 => {
+            let radius = if algorithm == Filter::Lanczos2 {
                 2.0
             } else {
                 3.0
@@ -316,8 +345,8 @@ fn kernel(x: f32, algorithm: Algorithm) -> f32 {
                 0.0
             }
         }
-        Algorithm::CatmullRom | Algorithm::Mitchell => {
-            let (b, c) = if algorithm == Algorithm::Mitchell {
+        Filter::CatmullRom | Filter::Mitchell => {
+            let (b, c) = if algorithm == Filter::Mitchell {
                 (1.0 / 3.0, 1.0 / 3.0)
             } else {
                 (0.0, 0.5)

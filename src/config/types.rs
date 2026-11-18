@@ -15,15 +15,28 @@ pub enum Algorithm {
     Mitchell,
     Lanczos2,
     Lanczos3,
+    #[serde(rename = "realplksr_2x")]
+    #[value(name = "realplksr-2x")]
+    RealPlksr2x,
 }
 impl Algorithm {
-    pub const ALL: [Self; 6] = [
+    pub const RESAMPLING: [Self; 6] = [
         Self::Nearest,
         Self::Bilinear,
         Self::CatmullRom,
         Self::Mitchell,
         Self::Lanczos2,
         Self::Lanczos3,
+    ];
+
+    pub const ALL: [Self; 7] = [
+        Self::Nearest,
+        Self::Bilinear,
+        Self::CatmullRom,
+        Self::Mitchell,
+        Self::Lanczos2,
+        Self::Lanczos3,
+        Self::RealPlksr2x,
     ];
 
     #[must_use]
@@ -35,6 +48,7 @@ impl Algorithm {
             Self::Mitchell => "Mitchell",
             Self::Lanczos2 => "Lanczos2",
             Self::Lanczos3 => "Lanczos3",
+            Self::RealPlksr2x => "RealPLKSR 2x",
         }
     }
 }

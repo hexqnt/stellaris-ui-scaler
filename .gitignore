@@ -3,3 +3,6 @@
 /output
 /docs
 /screenshots
+/ai
+/.venv-ai
+__pycache__/

@@ -84,6 +84,13 @@ jobs:
           cp "target/$TARGET/release/$BINARY" README.md "dist/$PACKAGE/"
           cp -R profiles "dist/$PACKAGE/"
           cp assets/icons/LICENSE "dist/$PACKAGE/licenses/tabler-icons-LICENSE"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Package RealPLKSR model and runtime
+        run: |
+          python -m pip install -r tools/requirements-ai.txt
+          python tools/prepare_ai.py --output "dist/$PACKAGE/ai"
       - name: Archive Linux package
         if: runner.os == 'Linux'
         run: tar -czf "dist/$PACKAGE.tar.gz" -C dist "$PACKAGE"

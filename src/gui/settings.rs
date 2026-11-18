@@ -30,7 +30,10 @@ pub(super) fn algorithm(
         .selected_text(value.name())
         .show_ui(ui, |ui| {
             for option in Algorithm::ALL {
-                ui.selectable_value(value, option, option.name());
+                let response = ui.selectable_value(value, option, option.name());
+                if option == Algorithm::RealPlksr2x {
+                    response.on_hover_text("Neural 2x upscaling on CPU. Slower than resampling; requires the ai resource directory. The result is resized to the selected scale.");
+                }
             }
         });
 }

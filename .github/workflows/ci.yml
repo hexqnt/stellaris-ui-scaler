@@ -50,3 +50,12 @@ jobs:
         run: cargo clippy --locked --all-targets --no-default-features -- -D warnings
       - name: Tests (CLI only)
         run: cargo test --locked --no-default-features
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Prepare neural upscaling resources
+        run: |
+          python -m pip install -r tools/requirements-ai.txt
+          python tools/prepare_ai.py
+      - name: RealPLKSR inference and pipeline tests
+        run: cargo test --locked --all-features realplksr -- --ignored

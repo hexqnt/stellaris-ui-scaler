@@ -9,6 +9,7 @@ pub mod fonts;
 #[cfg(feature = "gui")]
 pub mod gui;
 pub mod outliner;
+mod parallelism;
 mod paths;
 pub mod pdx;
 pub mod scaling;

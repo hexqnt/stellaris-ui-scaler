@@ -99,11 +99,7 @@ impl Studio {
                 .clicked()
         {
             self.rule_selection = Some(Selection::Category(category));
-            self.selected = self.plan.as_ref().and_then(|plan| {
-                plan.textures
-                    .iter()
-                    .position(|asset| asset.category == category)
-            });
+            self.selected = None;
         }
         self.draw_asset_tree(ui, busy);
         if previous_selection != self.selected {
@@ -112,9 +108,11 @@ impl Studio {
         }
     }
     pub(super) fn apply_selected_preview(&mut self) {
+        if !self.candidate_ready(self.chosen) {
+            return;
+        }
         if let Some(target) = &self.rule_selection {
             target.set_algorithm(&mut self.profile, self.algorithms[self.chosen]);
-            self.invalidate_preview();
             self.status = "Algorithm override updated; save the profile to persist it".into();
         }
     }
@@ -128,7 +126,7 @@ impl Studio {
             });
             for (i, algorithm) in self.algorithms.iter_mut().take(self.count).enumerate() {
                 egui::ComboBox::from_id_salt(i)
-                    .selected_text(format!("{}: {algorithm:?}", i + 1))
+                    .selected_text(format!("{}: {}", i + 1, algorithm.name()))
                     .show_ui(ui, |ui| {
                         for option in Algorithm::ALL {
                             ui.selectable_value(algorithm, option, option.name());
@@ -136,18 +134,16 @@ impl Studio {
                     });
             }
         });
-        ui.add_enabled_ui(!busy, |ui| {
-            self.chosen = self.chosen.min(self.count - 1);
-            if ui
-                .add_enabled(
-                    !self.images.is_empty() && self.rule_selection.is_some(),
-                    egui::Button::new("Use selected preview filter"),
-                )
-                .clicked()
-            {
-                self.apply_selected_preview();
-            }
-        });
+        self.chosen = self.chosen.min(self.count - 1);
+        if ui
+            .add_enabled(
+                self.candidate_ready(self.chosen) && self.rule_selection.is_some(),
+                egui::Button::new("Use selected preview filter"),
+            )
+            .clicked()
+        {
+            self.apply_selected_preview();
+        }
         if previous != (self.algorithms, self.count) {
             self.invalidate_preview();
         }

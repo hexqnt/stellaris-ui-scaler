@@ -79,11 +79,11 @@ fn workspace(ctx: &egui::Context) -> Studio {
         .map(|(name, side)| {
             (
                 name.into(),
-                ctx.load_texture(
+                super::PreviewImage::Ready(ctx.load_texture(
                     name,
                     egui::ColorImage::filled([side, side], Color32::WHITE),
                     egui::TextureOptions::NEAREST,
-                ),
+                )),
             )
         })
         .collect();
@@ -278,7 +278,12 @@ fn clicking_a_preview_image_or_title_applies_the_algorithm_to_the_current_select
             studio.rule_selection = Some(selection.clone());
             let index = usize::from(!click_image);
             let algorithm = studio.algorithms[index];
-            let texture = studio.images[index + 1].1.id();
+            let textures: Vec<_> = studio
+                .images
+                .iter()
+                .map(|(_, image)| image.handle().unwrap().id())
+                .collect();
+            let texture = textures[index + 1];
             let mut point = None;
             let mut title = None;
             for _ in 0..3 {
@@ -340,9 +345,183 @@ fn clicking_a_preview_image_or_title_applies_the_algorithm_to_the_current_select
                     ..Default::default()
                 }
             );
-            assert!(studio.preview_dirty);
-            assert!(studio.images.is_empty());
+            assert!(!studio.preview_dirty);
+            assert!(studio.receiver.is_none());
+            assert_eq!(
+                studio
+                    .images
+                    .iter()
+                    .map(|(_, image)| image.handle().unwrap().id())
+                    .collect::<Vec<_>>(),
+                textures
+            );
         }
+    }
+}
+
+#[test]
+fn comparison_highlight_tracks_the_current_algorithm_and_clears_for_missing_candidates() {
+    use crate::config::Algorithm;
+
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let mut studio = workspace(&ctx);
+    studio.count = 2;
+    let textures: Vec<_> = studio
+        .images
+        .iter()
+        .map(|(_, image)| image.handle().unwrap().id())
+        .collect();
+    for (algorithm, selected) in [
+        (Algorithm::Bilinear, None),
+        (Algorithm::CatmullRom, Some(1)),
+        (Algorithm::Nearest, None),
+        (Algorithm::Lanczos3, Some(0)),
+    ] {
+        studio
+            .rule_selection
+            .as_ref()
+            .unwrap()
+            .set_algorithm(&mut studio.profile, algorithm);
+        assert_eq!(studio.current_algorithm_candidate(), selected);
+        for _ in 0..2 {
+            let output = ctx.run_ui(egui::RawInput::default(), |ui| studio.previews_panel(ui));
+            for (index, label) in ["1: Lanczos3", "2: CatmullRom"].into_iter().enumerate() {
+                let node = output
+                    .platform_output
+                    .accesskit_update
+                    .as_ref()
+                    .unwrap()
+                    .nodes
+                    .iter()
+                    .find(|(_, node)| node.label() == Some(label))
+                    .unwrap();
+                assert_eq!(
+                    node.1.toggled(),
+                    Some(if selected == Some(index) {
+                        egui::accesskit::Toggled::True
+                    } else {
+                        egui::accesskit::Toggled::False
+                    })
+                );
+            }
+            let borders = output.shapes.iter().filter(|shape| {
+                matches!(&shape.shape, egui::Shape::Rect(rect) if rect.stroke.color == theme::MINT)
+            }).count();
+            assert_eq!(borders, usize::from(selected.is_some()));
+            output.drop_without_applying_deltas();
+        }
+        assert!(!studio.preview_dirty);
+        assert!(studio.receiver.is_none());
+        assert_eq!(
+            studio
+                .images
+                .iter()
+                .map(|(_, image)| image.handle().unwrap().id())
+                .collect::<Vec<_>>(),
+            textures
+        );
+    }
+    studio.selected = None;
+    assert_eq!(studio.current_algorithm_candidate(), None);
+}
+
+#[test]
+fn candidate_navigation_applies_the_algorithm_without_rebuilding_previews() {
+    for mode in [ComparisonMode::Split, ComparisonMode::Ab] {
+        let ctx = egui::Context::default();
+        let mut studio = workspace(&ctx);
+        studio.mode = mode;
+        let path = studio.rule_selection.as_ref().unwrap().key().to_owned();
+        let textures: Vec<_> = studio
+            .images
+            .iter()
+            .map(|(_, image)| image.handle().unwrap().id())
+            .collect();
+        for (key, index) in [(egui::Key::ArrowRight, 1), (egui::Key::ArrowLeft, 0)] {
+            ctx.run_ui(
+                egui::RawInput {
+                    events: vec![egui::Event::Key {
+                        key,
+                        physical_key: None,
+                        pressed: true,
+                        repeat: false,
+                        modifiers: egui::Modifiers::NONE,
+                    }],
+                    ..Default::default()
+                },
+                |ui| studio.previews_panel(ui),
+            )
+            .drop_without_applying_deltas();
+            assert_eq!(studio.chosen, index);
+            assert_eq!(
+                studio.profile.assets[&path].algorithm,
+                Some(studio.algorithms[index])
+            );
+            assert!(!studio.preview_dirty);
+            assert!(studio.receiver.is_none());
+            assert_eq!(
+                studio
+                    .images
+                    .iter()
+                    .map(|(_, image)| image.handle().unwrap().id())
+                    .collect::<Vec<_>>(),
+                textures
+            );
+        }
+    }
+}
+
+#[test]
+fn middle_button_pans_previews_without_changing_the_selection_or_split() {
+    for mode in [
+        ComparisonMode::Compare,
+        ComparisonMode::Ab,
+        ComparisonMode::Split,
+    ] {
+        let ctx = egui::Context::default();
+        let mut studio = workspace(&ctx);
+        studio.mode = mode;
+        studio.fit_preview = false;
+        studio.zoom = 32.0;
+        let before = toml::to_string(&studio.profile).unwrap();
+        let split = studio.split;
+        let start = Pos2::new(150.0, 150.0);
+        let end = start - Vec2::new(40.0, 30.0);
+        for events in [
+            vec![],
+            vec![
+                egui::Event::PointerMoved(start),
+                egui::Event::PointerButton {
+                    pos: start,
+                    button: egui::PointerButton::Middle,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            vec![egui::Event::PointerMoved(end)],
+            vec![egui::Event::PointerButton {
+                pos: end,
+                button: egui::PointerButton::Middle,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            }],
+            vec![],
+        ] {
+            ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(640.0, 480.0))),
+                    events,
+                    ..Default::default()
+                },
+                |ui| studio.previews_panel(ui),
+            )
+            .drop_without_applying_deltas();
+        }
+        assert_eq!(studio.preview_offset, Vec2::new(40.0, 30.0));
+        assert_eq!(studio.chosen, 0);
+        assert_eq!(studio.split, split);
+        assert_eq!(toml::to_string(&studio.profile).unwrap(), before);
     }
 }
 
@@ -380,7 +559,12 @@ fn split_drag_changes_the_comparison_without_changing_the_profile() {
             },
             |ui| {
                 if let Some(split) = studio
-                    .draw_image(ui, &studio.images[0].1, Some(&studio.images[1].1), canvas)
+                    .draw_image(
+                        ui,
+                        studio.images[0].1.handle().unwrap(),
+                        studio.images[1].1.handle(),
+                        canvas,
+                    )
                     .1
                 {
                     studio.split = split;
@@ -543,4 +727,75 @@ fn search_shortcuts_switch_tabs_and_clear_only_the_focused_search() {
     assert_eq!(studio.filter, "");
     assert_eq!(studio.asset_search.matches, [(0, 0)]);
     assert!(ctx.memory(|memory| memory.has_focus(search_id)));
+}
+
+#[test]
+fn preview_results_are_visible_before_completion_and_keep_candidate_indices() {
+    use super::{Event, PreviewImage};
+    use crate::compiler::PreviewEvent;
+    use crate::config::Algorithm;
+    let ctx = egui::Context::default();
+    let mut studio = workspace(&ctx);
+    studio.count = 2;
+    let (sender, receiver) = std::sync::mpsc::channel();
+    studio.receiver = Some(receiver);
+    sender
+        .send(Event::Preview(PreviewEvent::Source {
+            image: Arc::new(image::RgbaImage::new(32, 32)),
+            features: None,
+        }))
+        .unwrap();
+    sender
+        .send(Event::Preview(PreviewEvent::Candidate {
+            index: 1,
+            image: Ok(image::RgbaImage::new(64, 64)),
+        }))
+        .unwrap();
+    studio.poll(&ctx);
+    assert!(studio.receiver.is_some());
+    assert!(matches!(studio.images[1].1, PreviewImage::Pending));
+    assert!(matches!(studio.images[2].1, PreviewImage::Ready(_)));
+    assert_eq!(studio.images[2].0, "2: CatmullRom");
+    assert_eq!(studio.images[2].1.handle().unwrap().size(), [64, 64]);
+    let ready = studio.images[2].1.handle().unwrap().id();
+    for mode in [
+        ComparisonMode::Compare,
+        ComparisonMode::Ab,
+        ComparisonMode::Split,
+    ] {
+        studio.mode = mode;
+        ctx.run_ui(egui::RawInput::default(), |ui| studio.previews_panel(ui))
+            .drop_without_applying_deltas();
+    }
+    sender
+        .send(Event::Preview(PreviewEvent::Candidate {
+            index: 0,
+            image: Err(anyhow::anyhow!("Inference failed")),
+        }))
+        .unwrap();
+    studio.poll(&ctx);
+    assert!(
+        matches!(&studio.images[1].1, PreviewImage::Failed(error) if error == "Inference failed")
+    );
+    assert_eq!(studio.images[2].1.handle().unwrap().id(), ready);
+    studio.chosen = 0;
+    let before = toml::to_string(&studio.profile).unwrap();
+    studio.apply_selected_preview();
+    assert_eq!(toml::to_string(&studio.profile).unwrap(), before);
+    studio.chosen = 1;
+    studio.apply_selected_preview();
+    assert_eq!(
+        studio
+            .selected_asset()
+            .unwrap()
+            .options(&studio.profile)
+            .algorithm,
+        Algorithm::CatmullRom
+    );
+    sender
+        .send(Event::Finished(Ok(super::Completed::Preview)))
+        .unwrap();
+    studio.poll(&ctx);
+    assert!(studio.receiver.is_none());
+    assert_eq!(studio.images[2].1.handle().unwrap().id(), ready);
 }

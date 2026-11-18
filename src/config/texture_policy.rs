@@ -35,9 +35,12 @@ impl TexturePolicy {
         if let Some(choice) = recommendation {
             options.algorithm = choice.algorithm;
         }
+        if options.algorithm == Algorithm::RealPlksr2x {
+            options.independent_frames = true;
+        }
         if self.automatic.sharpening {
             let limit = match options.algorithm {
-                Algorithm::Bilinear | Algorithm::Nearest => 0.0,
+                Algorithm::Bilinear | Algorithm::Nearest | Algorithm::RealPlksr2x => 0.0,
                 Algorithm::Mitchell => 0.15,
                 _ if features.is_some_and(ImageFeatures::limits_sharpening) => 0.15,
                 _ => options.sharpening,
@@ -56,7 +59,10 @@ impl TexturePolicy {
                 && self.options.sharpening > 0.15
                 && !matches!(
                     self.processing(None).options.algorithm,
-                    Algorithm::Bilinear | Algorithm::Nearest | Algorithm::Mitchell
+                    Algorithm::Bilinear
+                        | Algorithm::Nearest
+                        | Algorithm::Mitchell
+                        | Algorithm::RealPlksr2x
                 ))
     }
 

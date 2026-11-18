@@ -9,7 +9,7 @@ use crate::{
     textures,
 };
 
-use super::{PIPELINE_VERSION, TextureAsset, png, preview::render_texture};
+use super::{Control, PIPELINE_VERSION, TextureAsset, png, preview::render_texture};
 
 pub(super) struct TextureCache {
     root: PathBuf,
@@ -52,6 +52,7 @@ impl TextureCache {
                 asset.tiled,
                 profile.reproduction,
                 &asset.path,
+                textures::cache_identity(options.algorithm),
             ),
         )?;
         hash.update(&self.key);
@@ -83,7 +84,11 @@ pub(super) struct PendingTexture<'a> {
 }
 
 impl PendingTexture<'_> {
-    pub(super) fn process(self) -> Result<ProcessedTexture> {
+    pub(super) fn process(
+        self,
+        processor: &textures::Processor,
+        control: &Control,
+    ) -> Result<ProcessedTexture> {
         let cached_image = self
             .cached
             .as_deref()
@@ -96,7 +101,14 @@ impl PendingTexture<'_> {
                 .with_context(|| format!("Cannot decode {}", self.asset.path))?;
             let features = self.policy.analyze(&image, self.asset.frames)?;
             let options = self.policy.processing(features.as_ref()).options;
-            let image = render_texture(self.asset, self.policy.scale, &image, &options)?;
+            let image = render_texture(
+                self.asset,
+                self.policy.scale,
+                &image,
+                &options,
+                processor,
+                control,
+            )?;
             (png(&image)?, image, false)
         };
         // Для ресурсных значков используем уже декодированное изображение, минуя повторное чтение PNG.

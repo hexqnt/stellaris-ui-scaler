@@ -181,17 +181,14 @@ impl super::Studio {
             })
             .inner;
         if let Some(selection) = clicked {
-            self.selected = self.asset_search.matches.iter().find_map(|&(index, _)| {
-                let path = &plan.textures[index].path;
-                let matches = match &selection {
-                    Selection::Asset(selected) => path == selected,
-                    Selection::Directory(directory) => path
-                        .strip_prefix(directory)
-                        .is_some_and(|tail| tail.starts_with('/')),
-                    Selection::Category(_) => false,
-                };
-                matches.then_some(index)
-            });
+            self.selected = match &selection {
+                Selection::Asset(path) => {
+                    self.asset_search.matches.iter().find_map(|&(index, _)| {
+                        (plan.textures[index].path == *path).then_some(index)
+                    })
+                }
+                Selection::Directory(_) | Selection::Category(_) => None,
+            };
             self.rule_selection = Some(selection);
         }
     }

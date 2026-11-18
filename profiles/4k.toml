@@ -44,6 +44,9 @@ sharpening = 0.45
 [directories."gfx/cursors"]
 algorithm = "catmull_rom"
 
+[directories."gfx/event_pictures"]
+algorithm = "realplksr_2x"
+
 [directories."gfx/interface/additional_content"]
 algorithm = "catmull_rom"
 
@@ -65,6 +68,9 @@ algorithm = "catmull_rom"
 [directories."gfx/interface/contacts"]
 algorithm = "catmull_rom"
 
+[directories."gfx/interface/contracts"]
+algorithm = "realplksr_2x"
+
 [directories."gfx/interface/council_view"]
 algorithm = "catmull_rom"
 
@@ -83,8 +89,8 @@ algorithm = "catmull_rom"
 [directories."gfx/interface/elections"]
 algorithm = "catmull_rom"
 
-[directories."gfx/interface/espionage"]
-algorithm = "catmull_rom"
+[directories."gfx/interface/espionage/operations"]
+algorithm = "realplksr_2x"
 
 [directories."gfx/interface/event_window"]
 algorithm = "catmull_rom"
@@ -93,7 +99,7 @@ algorithm = "catmull_rom"
 algorithm = "catmull_rom"
 
 [directories."gfx/interface/flags"]
-algorithm = "catmull_rom"
+algorithm = "realplksr_2x"
 
 [directories."gfx/interface/fleet_view"]
 algorithm = "catmull_rom"
@@ -111,7 +117,7 @@ algorithm = "catmull_rom"
 algorithm = "catmull_rom"
 
 [directories."gfx/interface/icons"]
-algorithm = "catmull_rom"
+algorithm = "realplksr_2x"
 
 [directories."gfx/interface/icons/ascension_perks"]
 algorithm = "lanczos3"
@@ -132,7 +138,7 @@ algorithm = "lanczos3"
 algorithm = "lanczos3"
 
 [directories."gfx/interface/intel"]
-algorithm = "catmull_rom"
+algorithm = "realplksr_2x"
 
 [directories."gfx/interface/main"]
 algorithm = "catmull_rom"
@@ -168,10 +174,13 @@ algorithm = "catmull_rom"
 algorithm = "catmull_rom"
 
 [assets."gfx/cursors/crosshair_01.dds"]
-algorithm = "catmull_rom"
+algorithm = "realplksr_2x"
 
 [assets."gfx/cursors/crosshair_anim.dds"]
 algorithm = "lanczos3"
+
+[assets."gfx/cursors/crosshair_overlay.dds"]
+algorithm = "realplksr_2x"
 
 [assets."gfx/interface/additional_content/checkmark_dlc.dds"]
 algorithm = "catmull_rom"
@@ -185,6 +194,300 @@ algorithm = "catmull_rom"
 [assets."gfx/interface/additional_content/loading_anim_mask.dds"]
 algorithm = "lanczos3"
 
+[assets."gfx/interface/anomaly/discovery_level_1.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_10.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_2.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_3.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_4.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_5.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_6.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_7.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_8.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_9.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/anomaly/discovery_level_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/archaeology_map_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/archaeology_sign.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/chapter0_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/event_chaper_in_progress.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_archaeology.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_archaeology_dieroll.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficulty_archaeology_easy.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficulty_archaeology_hard.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficulty_archaeology_hell.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficulty_archaeology_normal.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficultyrange.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficultysection_clue.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_difficultysection_leaderbonus.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/archaeology/icon_expedtionlog_clue.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/astral_rifts/astral_rift_sign.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/astral_rifts/rift_sphere_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/accept_hammer.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/ban.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/ban_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_sort_list.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_sort_reorder.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_sort_up.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_sound.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_sound_synth_queen.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_starbase_details.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_starbase_downgrade.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_starbase_upgrade.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_track_all_projects.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_track_all_projects_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_track_project.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_transfer_energy.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_transfer_minerals.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_tts_start.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_up.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_update.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_upgrade_ascension_tier.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_yes_active.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/button_yes_active_single.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/checkbox_20_20_01.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_artist.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_caravaneer.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_champions_forge.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_curator.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_mercenary.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_solid.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_square.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/close_button_trader.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/explore_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/focus_card_dismiss.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/kick.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_achievements.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_credits.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_discord.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_facebook.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_forum.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_privacy.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_twitter.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/main_menu_youtube.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/menu_sort_options_button.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/buttons/observer_outliner_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/open_galaxy_map.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/open_system_map.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/outliner_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/outliner_options_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/outliner_options_button_orange.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/resolution_details_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/resolution_details_button_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/resolution_view_supporters_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/resolution_view_supporters_button_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_agricultural_focus.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_agricultural_focus_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_balanced.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_balanced_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_financial.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_financial_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_industrial.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_industrial_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_military.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_military_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_no_focus.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_no_focus_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_research.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/sector_research_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/topbar_government_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/topbar_government_button_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/buttons/zoom_planet_button.dds"]
+algorithm = "realplksr_2x"
+
 [assets."gfx/interface/contracts/diplomacy_banner_contract.dds"]
 algorithm = "catmull_rom"
 
@@ -197,8 +500,707 @@ algorithm = "catmull_rom"
 [assets."gfx/interface/contracts/science_banner_contract.dds"]
 algorithm = "catmull_rom"
 
-[assets."gfx/interface/fleet_view/fleet_action_button_toggle_cloak_off.dds"]
+[assets."gfx/interface/council_view/button_council_position_unlockable.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/button_council_position_unlockable_active.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_agenda.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_council_approval.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_corporate_head_treasure_hunter.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_defense.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_head_treasure_hunter.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_mindwarden.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_research.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_ruler.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/council_view/icon_councilor_state.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_diplomacy.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_economy.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_government.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_infiltration_small.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_manipulation_small.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_military.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_provocation_small.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_sabotage_small.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_subterfuge_small.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/asset_type_categories/op_cat_technology.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/assetcard_hive.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/assetcard_internalorgans.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/assetcard_robot.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/espionage_blackops_sign.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/espionage_infiltration_sign.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/espionage_sabotage_sign.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/espionage_subterfuge_sign.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/operation_map_icons.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/operationbutton_difficultyicon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/operationicons_large.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/operationicons_small.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/probability_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/spynetwork_assetactive_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/espionage/spynetwork_intel_ledger_icons.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/federation/federation_centralization_locked.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/federation/federation_cohesion.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/federation/federation_ethics_issuesrings.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/federation/federation_flag_bg.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/federation/federation_law_locked.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/federation/xp_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/flags/empire_flag_128_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/empire_flag_200_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/empire_flag_32_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/empire_flag_48_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/empire_flag_64_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/empire_flag_64_mask_transparent.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/flag_full_mask.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/flags/flag_highlight.dds"]
 algorithm = "catmull_rom"
+
+[assets."gfx/interface/flags/flag_no_frame.dds"]
+algorithm = "lanczos3"
+
+[assets."gfx/interface/fleet_view/arkship_deep_scan.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_drop_off_prisoners.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_empty_spine.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_exodus_jump.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_harvest_resources.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_reprocess_planet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_stellar_ignition.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_strip_mine.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/arkship_subspace_image.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_action_blink.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_action_buff.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_action_cloak.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_action_damage.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_action_egg.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_action_go_fast.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/behemoth_fleet_superweapon.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/fleet_view/behemoth_rage_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/dismantle_megastructure.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/emergency_ftl.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_active_reconnaissance.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_active_reconnaissance_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_assist_detection.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_assist_detection_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_astral_jump.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_astral_jump_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_deselect.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_destroy_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_destroy_fleet_2.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_artist.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_caravaneer.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_champions_forge.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_curator.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_mercenary.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_observation_post.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_observation_post_solid.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_planet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_solid.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_focus_on_trader.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_lock_focus_on.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_merge_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_move_capital.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_move_capital_solid.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_move_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_move_fleet_large.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_move_fleet_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_move_fleet_selected_large.dds"]
+algorithm = "catmull_rom"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_new.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_patrol.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_patrol_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_phase_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_phase_fleet_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_quantum_catapult.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_quantum_catapult_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_reinforce.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_repair_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_return_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_split_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_stop_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_stop_fleet_large.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_take_point.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_take_point_large.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_take_point_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_take_point_selected_large.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_toggle_cloak.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_toggle_cloak_off.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_toggle_cloak_off_waystation.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_toggle_cloak_waystation.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_button_upgrade_fleet.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_dismiss_mercenaries.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_harvest_resources.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_inspect_army.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_action_inspect_ship.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_manager_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_order_button_automatic_construction.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_order_button_automatic_construction_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_order_button_build_megastructure.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_order_button_build_megastructure_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_order_shipyard_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_order_shipyard_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_stance_agressive.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_stance_evasive.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_stance_passive.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_active_study_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_active_study_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_assist_research.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_assist_research_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_attack_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_attack_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_auto_explore_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_auto_explore_action_arkship.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_auto_explore_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_auto_explore_selected_arkship.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_blow_up_planet_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_blow_up_planet_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_military_station_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_military_station_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_mining_station_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_mining_station_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_observation_station_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_observation_station_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_outpost_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_outpost_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_reserach_station_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_reserach_station_selection.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_terraforming_station_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_terraforming_station_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_wormhole_station_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_build_wormhole_station_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_colonize.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_colonize_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_covert_infiltration_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_covert_infiltration_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_armageddon_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_armageddon_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_behemoth_invasion_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_behemoth_invasion_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_firestorm_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_firestorm_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_indiscriminate_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_indiscriminate_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_plundering_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_plundering_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_pox_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_pox_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_raiding_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_seed_bombing_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_seed_bombing_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_seismic_bombing_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_seismic_bombing_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_selective_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_selective_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_voidworm_invasion_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_ground_support_voidworm_invasion_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_indoctrination.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_indoctrination_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_land_armies_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_land_armies_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_mia_jump_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_mia_jump_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_passive_study_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_passive_study_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_planetfall_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_planetfall_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_rally_armies_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_rally_armies_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_research_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_research_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_set_leader_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_special_project_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_special_project_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_survey_system_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_survey_system_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_survey_system_small_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_survey_system_small_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_technological_enlightenment_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_technological_enlightenment_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_transfix_terraformation_nucleus_action.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/fleet_task_transfix_terraformation_nucleus_selected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/ftl_escape.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/home_base.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/overwrite_fleet_template.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_air_superiority.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_field_repairs.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_field_testing.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_for_the_order.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_harmony.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_hold_the_line.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_on_my_command.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_plan_b.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_recall.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_sudden_strike.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_super_shield.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_taunt.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/paladin_thunderclap.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/retrofit_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/ship_life_bar_filled.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/ship_shield_bar_filled.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/space_fauna_growth_stance_controlled.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/space_fauna_growth_stance_excessive.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/unknown_fleet_friendly.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/unknown_fleet_neutral.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/unknown_fleet_scary.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/fleet_view/unknown_leader.dds"]
+algorithm = "realplksr_2x"
 
 [assets."gfx/interface/frontend/flag_colorpicker_highlight.dds"]
 algorithm = "catmull_rom"
@@ -301,3 +1303,57 @@ algorithm = "lanczos3"
 
 [assets."gfx/interface/icons/research_icon.dds"]
 algorithm = "catmull_rom"
+
+[assets."gfx/interface/sliders/horizontal_left_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/sliders/horizontal_right_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/subjugation/horizontal_left_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/subjugation/horizontal_right_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/subjugation/loyalty_icon.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/subjugation/loyalty_icon_large.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/claim_management_mapicons.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/map_gui_frame.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/map_gui_frame_capital.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/map_gui_frame_occupied.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/sector_management_mapicons.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/system_cloaking_detected.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/trade_route_management_mapicons.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/system/trade_route_management_mapicons_new.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/timelines/back_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/timelines/forward_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/timelines/zoom_in_button.dds"]
+algorithm = "realplksr_2x"
+
+[assets."gfx/interface/timelines/zoom_out_button.dds"]
+algorithm = "realplksr_2x"

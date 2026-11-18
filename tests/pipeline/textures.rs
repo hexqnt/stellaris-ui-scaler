@@ -76,7 +76,7 @@ fn frame_filtering_does_not_bleed_and_alpha_does_not_halo() {
             image::Rgba([0, 0, 255, 255])
         }
     });
-    for algorithm in Algorithm::ALL {
+    for algorithm in Algorithm::RESAMPLING {
         let options = TextureOptions {
             algorithm,
             sharpening: 0.0,
@@ -124,7 +124,7 @@ fn filters_preserve_constant_color_when_growing_and_shrinking() {
         ((7, 11), (19, 5)),
     ] {
         let source = image::RgbaImage::from_pixel(source_size.0, source_size.1, color);
-        for algorithm in Algorithm::ALL {
+        for algorithm in Algorithm::RESAMPLING {
             for color_space in [ColorSpace::Srgb, ColorSpace::Linear] {
                 for premultiplied_alpha in [false, true] {
                     let options = TextureOptions {

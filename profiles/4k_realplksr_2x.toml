@@ -1,0 +1,17 @@
+name = "Stellaris UI Scaler 4K RealPLKSR 2x"
+resolution = [3840, 2160]
+scale = 2.0
+auto_algorithm = false
+
+[textures]
+algorithm = "realplksr_2x"
+color_space = "srgb"
+premultiplied_alpha = true
+independent_frames = true
+sharpening = 0.0
+
+[outliner]
+compact = true
+width = 600
+row_height = 30
+title_height = 40

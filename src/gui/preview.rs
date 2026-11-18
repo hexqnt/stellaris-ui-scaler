@@ -1,8 +1,82 @@
 use eframe::egui::{self, Color32, Pos2, Rect, TextureHandle, Vec2};
 
-use super::{ComparisonMode, PreviewBackground, Studio, icons, theme};
+use super::{ComparisonMode, PreviewBackground, PreviewImage, Studio, icons, theme};
+
+fn image_interaction(ui: &egui::Ui, response: egui::Response, split: bool) -> egui::Response {
+    let cursor = if response.dragged_by(egui::PointerButton::Middle) {
+        ui.scroll_with_delta_animation(response.drag_delta(), egui::style::ScrollAnimation::none());
+        egui::CursorIcon::Grabbing
+    } else if split {
+        egui::CursorIcon::ResizeHorizontal
+    } else {
+        egui::CursorIcon::PointingHand
+    };
+    response.on_hover_and_drag_cursor(cursor)
+}
 
 impl Studio {
+    pub(super) fn accept_preview(
+        &mut self,
+        ctx: &egui::Context,
+        event: crate::compiler::PreviewEvent,
+    ) {
+        let upload = |name: &str, image: &image::RgbaImage| {
+            ctx.load_texture(
+                name,
+                egui::ColorImage::from_rgba_unmultiplied(
+                    [image.width() as usize, image.height() as usize],
+                    image.as_raw(),
+                ),
+                egui::TextureOptions::NEAREST,
+            )
+        };
+        match event {
+            crate::compiler::PreviewEvent::Source { image, features } => {
+                self.preview_features = features;
+                self.select_current_algorithm();
+                let original = upload("Original", &image);
+                self.images = std::iter::once(("Original".into(), PreviewImage::Ready(original)))
+                    .chain(self.algorithms[..self.count].iter().enumerate().map(
+                        |(index, algorithm)| {
+                            (
+                                format!("{}: {}", index + 1, algorithm.name()),
+                                PreviewImage::Pending,
+                            )
+                        },
+                    ))
+                    .collect();
+            }
+            crate::compiler::PreviewEvent::Candidate { index, image } => match image {
+                Ok(image) => {
+                    let (name, handle) = &mut self.images[index + 1];
+                    *handle = PreviewImage::Ready(upload(name, &image));
+                }
+                Err(error) => {
+                    self.images[index + 1].1 = PreviewImage::Failed(format!("{error:#}"));
+                }
+            },
+        }
+    }
+
+    pub(super) fn candidate_ready(&self, index: usize) -> bool {
+        self.images
+            .get(index + 1)
+            .is_some_and(|(_, image)| image.handle().is_some())
+    }
+
+    fn candidate_placeholder(&self, ui: &mut egui::Ui, index: usize) {
+        match &self.images[index + 1].1 {
+            PreviewImage::Pending => {
+                ui.spinner();
+                ui.label("Preparing preview…");
+            }
+            PreviewImage::Failed(error) => {
+                ui.colored_label(theme::MUTED, error);
+            }
+            PreviewImage::Ready(_) => {}
+        }
+    }
+
     pub(super) fn preview_toolbar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal_wrapped(|ui| {
             for (mode, icon, label) in [
@@ -111,6 +185,10 @@ impl Studio {
                 ui.weak("Drag the divider to compare with the original");
             }
         });
+        if previous || next {
+            self.apply_selected_preview();
+            ui.ctx().request_repaint();
+        }
     }
 
     pub(super) fn draw_image(
@@ -130,6 +208,7 @@ impl Studio {
         let image_size = native_size * zoom;
         let canvas_size = image_size.max(viewport);
         let (canvas, response) = ui.allocate_exact_size(canvas_size, egui::Sense::click_and_drag());
+        let response = image_interaction(ui, response, overlay.is_some());
         let painter = ui.painter();
         if self.background == PreviewBackground::Checker {
             let cell = 16.0;
@@ -171,7 +250,7 @@ impl Studio {
             Color32::WHITE,
         );
         if let Some(overlay) = overlay {
-            let split = if response.dragged() || response.clicked() {
+            let split = if response.dragged_by(egui::PointerButton::Primary) || response.clicked() {
                 response
                     .interact_pointer_pos()
                     .map(|pos| ((pos.x - rect.left()) / rect.width()).clamp(0.0, 1.0))
@@ -203,10 +282,7 @@ impl Studio {
                 egui::FontId::proportional(20.0),
                 theme::INK,
             );
-            return (
-                response.on_hover_cursor(egui::CursorIcon::ResizeHorizontal),
-                split,
-            );
+            return (response, split);
         }
         (response, None)
     }
@@ -244,8 +320,17 @@ impl Studio {
 
     fn single_preview(&mut self, ui: &mut egui::Ui) {
         self.candidate_navigation(ui);
-        let original = &self.images[0].1;
+        if !self.candidate_ready(self.chosen) {
+            self.candidate_placeholder(ui, self.chosen);
+            return;
+        }
+        let Some(original) = self.images[0].1.handle() else {
+            return;
+        };
         let candidate = &self.images[self.chosen + 1];
+        let Some(image) = candidate.1.handle() else {
+            return;
+        };
         ui.horizontal(|ui| {
             ui.strong(if self.mode == ComparisonMode::Split {
                 "Original"
@@ -265,9 +350,9 @@ impl Studio {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 if self.mode == ComparisonMode::Split {
-                    self.draw_image(ui, original, Some(&candidate.1), viewport)
+                    self.draw_image(ui, original, Some(image), viewport)
                 } else {
-                    self.draw_image(ui, &candidate.1, None, viewport)
+                    self.draw_image(ui, image, None, viewport)
                 }
             });
         if let Some(split) = output.inner.1 {
@@ -277,6 +362,9 @@ impl Studio {
     }
 
     fn comparison_grid(&mut self, ui: &mut egui::Ui) {
+        let Some(original) = self.images[0].1.handle() else {
+            return;
+        };
         ui.collapsing("Original texture", |ui| {
             let height = 100.0;
             let viewport = Vec2::new(ui.available_width(), height);
@@ -284,9 +372,10 @@ impl Studio {
                 .id_salt("original-preview")
                 .max_height(height)
                 .show(ui, |ui| {
-                    self.draw_image(ui, &self.images[0].1, None, viewport);
+                    self.draw_image(ui, original, None, viewport);
                 });
         });
+        let selected = self.current_algorithm_candidate();
         let candidates = &self.images[1..];
         let columns = candidates.len().min(2);
         let rows = candidates.len().div_ceil(2);
@@ -307,7 +396,7 @@ impl Studio {
                         .inner_margin(8)
                         .stroke(egui::Stroke::new(
                             1.0,
-                            if self.chosen == index {
+                            if selected == Some(index) {
                                 theme::MINT
                             } else {
                                 theme::BORDER
@@ -317,11 +406,19 @@ impl Studio {
                         .show(cell, |ui| {
                             ui.set_min_width(ui.available_width());
                             if ui
-                                .add(egui::Button::selectable(self.chosen == index, name))
+                                .add_enabled(
+                                    self.candidate_ready(index),
+                                    egui::Button::selectable(selected == Some(index), name),
+                                )
                                 .clicked()
                             {
                                 next_chosen = Some(index);
                             }
+                            let Some(image) = image.handle() else {
+                                ui.set_min_height((row_height - 40.0).max(60.0));
+                                self.candidate_placeholder(ui, index);
+                                return;
+                            };
                             let viewport =
                                 Vec2::new(ui.available_width(), (row_height - 60.0).max(40.0));
                             let output = egui::ScrollArea::both()
@@ -329,15 +426,13 @@ impl Studio {
                                 .scroll_offset(self.preview_offset)
                                 .auto_shrink([false, false])
                                 .max_height(viewport.y)
-                                .show(ui, |ui| {
-                                    self.draw_image(ui, image, None, viewport)
-                                        .0
-                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                });
+                                .show(ui, |ui| self.draw_image(ui, image, None, viewport).0);
                             if output.inner.clicked() {
                                 next_chosen = Some(index);
                             }
-                            if ui.rect_contains_pointer(output.inner_rect) {
+                            if ui.rect_contains_pointer(output.inner_rect)
+                                || output.inner.dragged_by(egui::PointerButton::Middle)
+                            {
                                 next_offset = output.state.clamped_offset();
                             }
                         });

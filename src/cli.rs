@@ -13,7 +13,7 @@ use crate::{
     assets::Installation,
     atomic_file::AtomicFile,
     compiler::{self, Control, Progress},
-    config::{Profile, Scale},
+    config::{Algorithm, Profile, Scale},
     source_mods, validation,
 };
 
@@ -146,6 +146,12 @@ struct ProfileArgs {
     profile: Option<PathBuf>,
     #[arg(long)]
     scale: Option<Scale>,
+    #[arg(
+        long,
+        value_enum,
+        help = "Override the profile's default texture algorithm"
+    )]
+    algorithm: Option<Algorithm>,
 }
 
 impl ProfileArgs {
@@ -156,6 +162,10 @@ impl ProfileArgs {
             .map_or_else(|| Ok(Profile::default()), Profile::load)?;
         if let Some(scale) = self.scale {
             profile.scale = scale;
+        }
+        if let Some(algorithm) = self.algorithm {
+            profile.textures.algorithm = algorithm;
+            profile.auto_algorithm = false;
         }
         profile.check()?;
         Ok(profile)
@@ -266,42 +276,52 @@ pub fn run() -> Result<()> {
             settings,
             output,
             samples,
-        } => {
-            ensure!(!output.exists(), "Benchmark output already exists");
-            let mut profile = settings.load()?;
-            let game = sources.apply(&mut profile)?;
-            let plan =
-                compiler::plan_with_profile(&game, &profile, &Control::default(), &mut progress)?;
-            fs::create_dir_all(&output)?;
-            let mut measurements = Vec::new();
-            for (index, asset) in plan
-                .textures
-                .iter()
-                .step_by((plan.textures.len() / samples).max(1))
-                .take(samples.get())
-                .enumerate()
-            {
-                let source = crate::textures::decode(&plan.game.read(&asset.path)?)?;
-                source.save(output.join(format!("{index:04}-source.png")))?;
-                for algorithm in crate::config::Algorithm::ALL {
-                    let start = std::time::Instant::now();
-                    let mut candidates = compiler::preview_candidates(
-                        &plan,
-                        &profile,
-                        asset,
-                        &[algorithm],
-                        &Control::default(),
-                    )?;
-                    let (_, image) = candidates.pop().context("Missing preview candidate")?;
-                    image.save(output.join(format!("{index:04}-{algorithm:?}.png")))?;
-                    measurements.push(serde_json::json!({"asset":asset.path,"algorithm":algorithm,"milliseconds":start.elapsed().as_millis(),"dimensions":image.dimensions()}));
-                }
-            }
-            json(&measurements, Some(&output.join("report.json")))
-        }
+        } => benchmark(sources, settings, &output, samples),
         Command::Gui { game } => launch_gui(game),
     }
 }
+fn benchmark(
+    sources: SourceArgs,
+    settings: ProfileArgs,
+    output: &Path,
+    samples: NonZeroUsize,
+) -> Result<()> {
+    ensure!(!output.exists(), "Benchmark output already exists");
+    let selected = settings.algorithm;
+    let algorithms = selected
+        .as_ref()
+        .map_or(Algorithm::RESAMPLING.as_slice(), std::slice::from_ref);
+    let mut profile = settings.load()?;
+    let game = sources.apply(&mut profile)?;
+    let plan = compiler::plan_with_profile(&game, &profile, &Control::default(), &mut progress)?;
+    fs::create_dir_all(output)?;
+    let mut measurements = Vec::new();
+    for (index, asset) in plan
+        .textures
+        .iter()
+        .step_by((plan.textures.len() / samples).max(1))
+        .take(samples.get())
+        .enumerate()
+    {
+        let source = crate::textures::decode(&plan.game.read(&asset.path)?)?;
+        source.save(output.join(format!("{index:04}-source.png")))?;
+        for &algorithm in algorithms {
+            let start = std::time::Instant::now();
+            let mut candidates = compiler::preview_candidates(
+                &plan,
+                &profile,
+                asset,
+                &[algorithm],
+                &Control::default(),
+            )?;
+            let (_, image) = candidates.pop().context("Missing preview candidate")?;
+            image.save(output.join(format!("{index:04}-{algorithm:?}.png")))?;
+            measurements.push(serde_json::json!({"asset":asset.path,"algorithm":algorithm,"milliseconds":start.elapsed().as_millis(),"dimensions":image.dimensions()}));
+        }
+    }
+    json(&measurements, Some(&output.join("report.json")))
+}
+
 #[cfg(feature = "gui")]
 fn launch_gui(game: Option<PathBuf>) -> Result<()> {
     crate::gui::run(game)

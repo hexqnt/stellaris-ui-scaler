@@ -31,7 +31,10 @@ use crate::{
 };
 
 pub use analysis::{plan, plan_with_mods, plan_with_profile, scan_enabled_mods};
-pub use preview::{TexturePreview, preview, preview_candidates, preview_candidates_with_analysis};
+pub use preview::{
+    PreviewEvent, PreviewSession, TexturePreview, preview, preview_candidates,
+    preview_candidates_with_analysis,
+};
 
 const MANIFEST: &str = "ui-scaler-manifest.json";
 const PIPELINE_VERSION: &str = "5";

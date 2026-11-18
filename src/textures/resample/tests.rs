@@ -46,7 +46,7 @@ fn filtering_matches_scalar_reference_at_block_boundaries() {
             });
             let view = atlas.view(3, 2, source_size.0, source_size.1);
             let source = view.to_image();
-            for algorithm in Algorithm::ALL {
+            for algorithm in Algorithm::RESAMPLING {
                 for color_space in [ColorSpace::Srgb, ColorSpace::Linear] {
                     for premultiplied_alpha in [false, true] {
                         let options = TextureOptions {
@@ -103,8 +103,9 @@ fn scalar_resize(source: &RgbaImage, target: (u32, u32), options: &TextureOption
             value
         })
         .collect();
-    let horizontal = Weights::new(source.width(), target.0, options.algorithm);
-    let vertical = Weights::new(source.height(), target.1, options.algorithm);
+    let filter = Filter::try_from(options.algorithm).unwrap();
+    let horizontal = Weights::new(source.width(), target.0, filter);
+    let vertical = Weights::new(source.height(), target.1, filter);
     let mut intermediate = vec![[0.0_f32; 4]; target.0 as usize * source.height() as usize];
     for (row, source) in intermediate
         .chunks_mut(target.0 as usize)

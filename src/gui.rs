@@ -27,7 +27,7 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
-use eframe::egui::{self, TextureHandle, TextureOptions, Vec2};
+use eframe::egui::{self, TextureHandle, Vec2};
 
 use crate::{
     compiler::{self, BuildPlan, Control, Progress, TextureAsset},
@@ -60,17 +60,33 @@ enum PreviewBackground {
 
 enum Event {
     Progress(Progress),
+    Preview(compiler::PreviewEvent),
     Finished(Result<Completed, String>),
 }
 
 enum Completed {
     Plan(Box<compiler::EnabledModScan>),
-    Preview(compiler::TexturePreview),
+    Preview,
     Built {
         output: PathBuf,
         mods_directory: Option<PathBuf>,
     },
 }
+enum PreviewImage {
+    Pending,
+    Ready(TextureHandle),
+    Failed(String),
+}
+
+impl PreviewImage {
+    const fn handle(&self) -> Option<&TextureHandle> {
+        match self {
+            Self::Ready(handle) => Some(handle),
+            Self::Pending | Self::Failed(_) => None,
+        }
+    }
+}
+
 struct Studio {
     tab: WorkspaceTab,
     font_settings: font_settings::FontSettings,
@@ -91,7 +107,8 @@ struct Studio {
     rule_selection: Option<Selection>,
     preview_dirty: bool,
     preview_features: Option<crate::config::ImageFeatures>,
-    images: Vec<(String, TextureHandle)>,
+    images: Vec<(String, PreviewImage)>,
+    preview_session: Arc<compiler::PreviewSession>,
     receiver: Option<mpsc::Receiver<Event>>,
     control: Control,
     status: String,
@@ -135,6 +152,7 @@ impl Studio {
             preview_dirty: false,
             preview_features: None,
             images: Vec::new(),
+            preview_session: Arc::default(),
             receiver: None,
             control: Control::default(),
             status: "Select an installation and scan its assets".into(),
@@ -182,35 +200,23 @@ impl Studio {
                 }
             };
             match event {
+                Event::Preview(event) => self.accept_preview(ctx, event),
                 Event::Progress(p) => {
                     self.status = format!("{}: {}/{}", p.stage, p.completed, p.total);
                 }
                 Event::Finished(result) => {
                     self.receiver = None;
+                    if let Err(error) = &result {
+                        for (_, image) in &mut self.images {
+                            if matches!(image, PreviewImage::Pending) {
+                                *image = PreviewImage::Failed(error.clone());
+                            }
+                        }
+                    }
                     match result {
                         Ok(Completed::Plan(scan)) => self.accept_scan(*scan),
-                        Ok(Completed::Preview(preview)) => {
-                            self.preview_features = preview.features;
-                            self.select_current_algorithm();
-                            self.images = preview
-                                .images
-                                .into_iter()
-                                .map(|(name, image)| {
-                                    let size = [image.width() as usize, image.height() as usize];
-                                    let handle = ctx.load_texture(
-                                        &name,
-                                        egui::ColorImage::from_rgba_unmultiplied(
-                                            size,
-                                            image.as_raw(),
-                                        ),
-                                        TextureOptions::NEAREST,
-                                    );
-                                    (name, handle)
-                                })
-                                .collect();
-                            self.status =
-                                "Preview ready; select a candidate to save its processing rule"
-                                    .into();
+                        Ok(Completed::Preview) => {
+                            self.status = "Preview complete; select a ready candidate to save its processing rule".into();
                         }
                         Ok(Completed::Built {
                             output,
@@ -235,17 +241,18 @@ impl Studio {
     fn selected_asset(&self) -> Option<&TextureAsset> {
         self.plan.as_ref()?.textures.get(self.selected?)
     }
+    fn current_algorithm_candidate(&self) -> Option<usize> {
+        let algorithm = self
+            .selected_asset()?
+            .processing(&self.profile, self.preview_features.as_ref())
+            .options
+            .algorithm;
+        self.algorithms[..self.count]
+            .iter()
+            .position(|&option| option == algorithm)
+    }
     fn select_current_algorithm(&mut self) {
-        if let Some(asset) = self.selected_asset() {
-            let algorithm = asset
-                .processing(&self.profile, self.preview_features.as_ref())
-                .options
-                .algorithm;
-            self.chosen = self.algorithms[..self.count]
-                .iter()
-                .position(|&option| option == algorithm)
-                .unwrap_or(0);
-        }
+        self.chosen = self.current_algorithm_candidate().unwrap_or(0);
     }
     fn invalidate_preview(&mut self) {
         self.images.clear();
@@ -260,16 +267,23 @@ impl Studio {
         let profile = self.profile.clone();
         let algorithms = self.algorithms;
         let count = self.count;
-        self.start(ctx, move |control, _| {
-            let asset = &plan.textures[index];
-            let images = compiler::preview_candidates_with_analysis(
+        let session = Arc::clone(&self.preview_session);
+        let repaint = ctx.clone();
+        self.images.clear();
+        self.status = "Preparing previews…".into();
+        self.start(ctx, move |control, sender| {
+            session.render(
                 &plan,
                 &profile,
-                asset,
+                &plan.textures[index],
                 &algorithms[..count],
                 &control,
+                &|event| {
+                    let _ = sender.send(Event::Preview(event));
+                    repaint.request_repaint();
+                },
             )?;
-            Ok(Completed::Preview(images))
+            Ok(Completed::Preview)
         });
     }
 }
