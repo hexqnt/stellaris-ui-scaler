@@ -140,8 +140,10 @@ impl OutputTransaction {
         if launcher.exists() {
             let old = fs::read_to_string(&launcher)?;
             ensure!(
-                old.lines().any(|line| line == self.path_line) && self.destination.exists(),
-                "Launcher file belongs to another mod"
+                old.lines().any(|line| line == self.path_line),
+                "Launcher descriptor {} does not point to output directory {}; choose another output directory or remove the descriptor if it is obsolete",
+                launcher.display(),
+                self.destination.display()
             );
         }
         let launcher_file =

@@ -2,7 +2,7 @@ cargo-features = ["profile-rustflags"]
 
 [package]
 name = "stellaris-ui-scaler"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 publish = false
 description = "Compile and compare scaled Stellaris user interfaces"
@@ -13,7 +13,12 @@ authors = ["hexqnt <hexqntlab@gmail.com>"]
 
 [features]
 default = ["gui"]
-gui = ["dep:eframe", "dep:egui_extras", "dep:egui-file-dialog", "dep:nucleo-matcher"]
+gui = [
+    "dep:eframe",
+    "dep:egui_extras",
+    "dep:egui-file-dialog",
+    "dep:nucleo-matcher",
+]
 
 [dependencies]
 anyhow = "1.0.104"

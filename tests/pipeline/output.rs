@@ -388,6 +388,37 @@ fn incremental_build_rehashes_content_and_removes_only_stale_owned_files() {
 }
 
 #[test]
+fn rebuild_recovers_when_only_the_launcher_descriptor_remains() {
+    let fixture = fixture();
+    let control = Control::default();
+    let profile = Profile::default();
+    let output = fixture.0.join("mod");
+    let launcher = output.with_added_extension("mod");
+    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let descriptor = fs::read(&launcher).unwrap();
+    let manifest = fs::read(output.join(compiler::manifest_name())).unwrap();
+    fs::remove_dir_all(&output).unwrap();
+
+    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    assert_eq!(fs::read(&launcher).unwrap(), descriptor);
+    assert_eq!(
+        fs::read(output.join(compiler::manifest_name())).unwrap(),
+        manifest
+    );
+
+    fs::remove_dir_all(&output).unwrap();
+    let foreign = "name=\"Other mod\"\npath=\"/another/mod\"\n";
+    fs::write(&launcher, foreign).unwrap();
+    let error = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap_err();
+    let message = error.to_string();
+    assert!(message.contains(&launcher.display().to_string()));
+    assert!(message.contains(&output.display().to_string()));
+    assert!(!output.exists());
+    assert_eq!(fs::read_to_string(&launcher).unwrap(), foreign);
+}
+
+#[test]
 fn failed_publication_keeps_previous_output_and_launcher() {
     let fixture = fixture();
     let control = Control::default();
