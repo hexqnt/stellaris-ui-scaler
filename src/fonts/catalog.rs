@@ -225,22 +225,17 @@ impl Catalog {
             let Some(name) = node.named() else {
                 return;
             };
-            let index = self
-                .groups
-                .iter()
-                .position(|group| group.name == name)
-                .unwrap_or_else(|| {
-                    self.groups.push(Group {
-                        name: name.into(),
-                        ..Group::default()
-                    });
-                    self.groups.len() - 1
-                });
-            let group = &mut self.groups[index];
+            let group = match self.groups.iter().position(|group| group.name == name) {
+                Some(index) => &mut self.groups[index],
+                None => self.groups.push_mut(Group {
+                    name: name.into(),
+                    ..Group::default()
+                }),
+            };
             let path = bitmap_paths(node).find_map(Node::atom);
             let languages: Vec<_> = node
                 .field("languages")
-                .map_or(&[][..], Node::children)
+                .map_or_default(Node::children)
                 .iter()
                 .filter_map(Node::atom)
                 .map(str::to_owned)

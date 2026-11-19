@@ -261,7 +261,7 @@ fn generate(
         .file_name()
         .and_then(|name| name.to_str())
         .context("Invalid bitmap font path")?;
-    let relative = path.strip_prefix("gfx/fonts/").unwrap_or(path);
+    let relative = path.trim_prefix("gfx/fonts/");
     let target = format!("gfx/fonts/ui_scaler/{name}/{relative}");
     let (metrics, dimensions) = font.resize(size, &format!("{stem}.dds"))?;
     let atlas = ["dds", "tga", "png"]

@@ -20,10 +20,21 @@ impl ModListMismatch {
     /// Представление обоих порядков для ошибок CLI и уведомлений GUI.
     #[must_use]
     pub fn orders(&self) -> impl fmt::Display + '_ {
-        Orders {
-            saved: &self.saved,
-            current: &self.current,
-        }
+        fmt::from_fn(|f| {
+            for (label, paths) in [
+                ("Saved order", &self.saved),
+                ("Current order", &self.current),
+            ] {
+                writeln!(f, "{label}:")?;
+                if paths.is_empty() {
+                    writeln!(f, "  (none)")?;
+                }
+                for path in paths {
+                    writeln!(f, "  {}", path.display())?;
+                }
+            }
+            Ok(())
+        })
     }
 }
 
@@ -39,25 +50,5 @@ impl fmt::Display for ModListMismatch {
             f,
             "Scan assets again in the GUI to load the current enabled mods, then save the profile. CLI: sync-source-mods --game <GAME> --profile <PROFILE>."
         )
-    }
-}
-
-struct Orders<'a> {
-    saved: &'a [PathBuf],
-    current: &'a [PathBuf],
-}
-
-impl fmt::Display for Orders<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (label, paths) in [("Saved order", self.saved), ("Current order", self.current)] {
-            writeln!(f, "{label}:")?;
-            if paths.is_empty() {
-                writeln!(f, "  (none)")?;
-            }
-            for path in paths {
-                writeln!(f, "  {}", path.display())?;
-            }
-        }
-        Ok(())
     }
 }

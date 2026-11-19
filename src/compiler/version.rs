@@ -4,7 +4,7 @@ pub(super) const RULE: &str = "game-version";
 const TARGET_LINE: (u32, u32) = (4, 5);
 
 fn release_line(version: &str) -> Option<(u32, u32)> {
-    let mut parts = version.strip_prefix('v').unwrap_or(version).split('.');
+    let mut parts = version.trim_prefix('v').split('.');
     let major = parts.next()?.parse().ok()?;
     let minor = parts.next()?.parse().ok()?;
     parts.next()?.parse::<u32>().ok()?;

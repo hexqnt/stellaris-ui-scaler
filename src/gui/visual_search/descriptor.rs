@@ -227,4 +227,3 @@ fn normalized(colors: &Colors) -> Luminance {
     }
     values
 }
-

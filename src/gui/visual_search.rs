@@ -8,11 +8,11 @@ use std::sync::Arc;
 use eframe::egui::{self, TextureHandle};
 use image::RgbaImage;
 
+use super::Studio;
 use crate::{
     compiler::BuildPlan,
     config::{ImageFeatures, Profile},
 };
-use super::Studio;
 use index::{Hit, Index};
 use worker::{Completed, Input, Job};
 
@@ -120,7 +120,7 @@ impl VisualSearch {
                     "Showing {} of {} resources · {} unreadable textures skipped",
                     self.rows.len(),
                     self.ranked.len(),
-                    self.index.as_ref().map_or(0, |index| index.skipped)
+                    self.index.as_ref().map_or_default(|index| index.skipped)
                 );
             }
             Err(error) => {
@@ -147,4 +147,3 @@ impl Studio {
 }
 #[cfg(test)]
 mod tests;
-

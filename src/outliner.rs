@@ -27,7 +27,7 @@ pub fn shared_gui(
     if !options.compact {
         return Ok(source.into());
     }
-    let base = path.strip_prefix("interface/").unwrap_or(path);
+    let base = path.trim_prefix("interface/");
     let doc = Document::parse(source)?;
     let mut edits = Edits::default();
     if base == "alerts.gui" {

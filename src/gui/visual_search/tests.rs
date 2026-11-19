@@ -3,6 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use super::*;
 use crate::{
     assets::{Installation, Source},
     compiler::TextureAsset,
@@ -10,7 +11,6 @@ use crate::{
     fonts,
     test_support::Temp,
 };
-use super::*;
 
 fn workspace(count: usize) -> (Temp, Studio, Arc<egui::ColorImage>) {
     let temp = Temp::new();

@@ -36,7 +36,7 @@ impl OutputTransaction {
         ensure!(!output.is_symlink(), "Output must not be a symbolic link");
         let parent = output
             .parent()
-            .filter(|p| !p.as_os_str().is_empty())
+            .filter(|p| !p.is_empty())
             .unwrap_or_else(|| Path::new("."));
         fs::create_dir_all(parent)?;
         let parent = parent.canonicalize()?;

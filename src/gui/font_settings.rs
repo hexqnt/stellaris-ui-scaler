@@ -272,7 +272,7 @@ fn language_name(language: &str) -> &str {
         "l_simp_chinese" => "Chinese (Simplified)",
         "l_japanese" => "Japanese",
         "l_korean" => "Korean",
-        _ => language.strip_prefix("l_").unwrap_or(language),
+        _ => language.trim_prefix("l_"),
     }
 }
 

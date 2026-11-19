@@ -201,4 +201,3 @@ pub fn preview_candidates_with_analysis(
     }
     Ok(TexturePreview { images, features })
 }
-

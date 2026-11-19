@@ -15,7 +15,7 @@ impl Studio {
                 .profile
                 .picture
                 .as_ref()
-                .map_or(Cow::Borrowed(""), |path| path.to_string_lossy());
+                .map_or_default(|path| path.to_string_lossy());
             if ui
                 .add(
                     egui::TextEdit::singleline(&mut picture)
@@ -68,7 +68,7 @@ impl Studio {
                         .supported_version
                         .as_deref()
                         .or(detected)
-                        .map_or(Cow::Borrowed(""), Cow::Borrowed);
+                        .map_or_default(Cow::Borrowed);
                     if ui
                         .add(
                             egui::TextEdit::singleline(&mut version)

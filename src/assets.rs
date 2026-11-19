@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn normalized_references_preserve_unicode_case_folding_and_borrow_ascii() {
         let path = "gfx/interface/icon.dds";
-        assert!(matches!(normalize_reference(path), Cow::Borrowed(value) if value == path));
+        std::assert_matches!(normalize_reference(path), Cow::Borrowed(value) if value == path);
         for path in [
             r"GFX\Interface\Icon.DDS",
             "GFX/ΣΟΣ/ФОН.DDS",

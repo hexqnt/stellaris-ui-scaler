@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fmt,
     path::{Path, PathBuf},
@@ -100,7 +99,7 @@ impl Editor {
         let paths = profile
             .auto_source_mods
             .as_ref()
-            .map_or(&[][..], |settings| settings.source_mods.as_slice());
+            .map_or_default(|settings| settings.source_mods.as_slice());
         for path in paths {
             if !self.names.contains_key(path) {
                 self.names.insert(path.clone(), source_mods::mod_name(path));
@@ -123,7 +122,7 @@ impl Editor {
                     .auto_source_mods
                     .as_ref()
                     .and_then(|settings| settings.user_data_dir.as_deref())
-                    .map_or(Cow::Borrowed(""), Path::to_string_lossy);
+                    .map_or_default(Path::to_string_lossy);
                 if ui
                     .add(
                         egui::TextEdit::singleline(&mut directory)

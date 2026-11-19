@@ -69,20 +69,17 @@ fn content_bounds_are_per_frame_and_include_sampling_uncertainty() {
 #[test]
 fn neutral_frames_require_uniform_sampled_alpha() {
     let uniform = RgbaImage::from_pixel(96, 64, Rgba([20, 30, 40, 128]));
-    assert!(matches!(
+    std::assert_matches!(
         ImageFeatures::analyze(&uniform, 1).unwrap().consensus(),
         Consensus::Neutral
-    ));
+    );
     // Сетка пропускает сам переход альфы между x=1 и x=2, но видит разные значения по его сторонам.
     let stepped = RgbaImage::from_fn(1024, 4, |x, _| {
         Rgba([20, 30, 40, if x < 2 { 0 } else { 255 }])
     });
     let features = ImageFeatures::analyze(&stepped, 1).unwrap();
     assert_eq!(serde_json::to_value(features).unwrap()["alpha_varying"], 0);
-    assert!(matches!(
-        features.consensus(),
-        Consensus::Agreed(Content::Unknown)
-    ));
+    std::assert_matches!(features.consensus(), Consensus::Agreed(Content::Unknown));
 }
 
 #[test]

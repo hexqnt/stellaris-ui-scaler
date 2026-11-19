@@ -114,7 +114,7 @@ impl Studio {
                 .add(icons::button(icons::FIT, "Fit").selected(self.fit_preview))
                 .clicked()
             {
-                self.fit_preview = !self.fit_preview;
+                self.fit_preview.toggle();
                 self.preview_offset = Vec2::ZERO;
             }
             egui::ComboBox::from_id_salt("preview-background")
@@ -449,4 +449,3 @@ fn image_interaction(ui: &egui::Ui, response: egui::Response, split: bool) -> eg
     };
     response.on_hover_and_drag_cursor(cursor)
 }
-

@@ -42,11 +42,7 @@ impl<'a> Node<'a> {
     #[must_use]
     pub fn atom(&self) -> Option<&'a str> {
         match &self.value {
-            Value::Atom { text, .. } => Some(
-                text.strip_prefix('"')
-                    .and_then(|value| value.strip_suffix('"'))
-                    .unwrap_or(text),
-            ),
+            Value::Atom { text, .. } => Some(text.strip_circumfix('"', '"').unwrap_or(text)),
             Value::Block { .. } => None,
         }
     }
@@ -70,9 +66,8 @@ impl<'a> Node<'a> {
     pub fn walk<'doc>(&'doc self, visit: &mut impl FnMut(&'doc Self)) {
         self.try_walk(&mut |node| {
             visit(node);
-            Ok::<_, std::convert::Infallible>(())
-        })
-        .unwrap_or_else(|never| match never {});
+            Ok::<_, !>(())
+        });
     }
 
     /// Обходит поддерево, включая сам узел, до первой ошибки обработчика.
@@ -262,7 +257,7 @@ impl Edits {
 pub(crate) fn unescape(text: &str) -> Cow<'_, str> {
     let Some(start) = text
         .as_bytes()
-        .windows(2)
+        .array_windows::<2>()
         .position(|pair| matches!(pair, [b'\\', b'\\' | b'"']))
     else {
         return Cow::Borrowed(text);
@@ -366,7 +361,7 @@ mod tests {
             assert_eq!(unescape(source), expected);
         }
         for text in ["mod/ui", r"D:\Mods\UI", r"mod/UI\", "Текст"] {
-            assert!(matches!(unescape(text), Cow::Borrowed(value) if value == text));
+            std::assert_matches!(unescape(text), Cow::Borrowed(value) if value == text);
         }
     }
 }

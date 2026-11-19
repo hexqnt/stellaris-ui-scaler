@@ -158,6 +158,36 @@ fn geometry_is_contextual_and_rounds_like_python() {
 }
 
 #[test]
+fn scaled_atoms_preserve_quotes_precision_and_rounding() {
+    for (value, expected) in [
+        ("3", "4"),
+        ("-3", "-4"),
+        ("2.5", "3.750"),
+        ("-0.125", "-0.188"),
+        ("0", "0"),
+        ("NaN", "NaN"),
+        ("@dynamic", "@dynamic"),
+    ] {
+        for quoted in [false, true] {
+            let quote = if quoted { "\"" } else { "" };
+            let source = format!("size = {{ width = {quote}{value}{quote} }}");
+            let result = scaling::geometry(
+                &source,
+                Scale::try_from(1.5).unwrap(),
+                false,
+                "test.gui",
+                &mut Vec::new(),
+            )
+            .unwrap();
+            assert_eq!(
+                result,
+                format!("size = {{ width = {quote}{expected}{quote} }}")
+            );
+        }
+    }
+}
+
+#[test]
 fn compact_rows_keep_engine_sprite_names() {
     let source = "guiTypes = { containerWindowType = { name = \"outliner_member_fleet_entry_window\" size = { width = 353 height = 69 } buttonType = { name = \"background\" quadTextureSprite = \"GFX_outliner_member_bg\" } instantTextBoxType = { name = \"name\" position = { x = 40 y = 3 } } } }";
     let profile = Profile::default();

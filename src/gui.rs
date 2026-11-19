@@ -296,7 +296,10 @@ impl Studio {
 
 impl Studio {
     fn refresh_asset_filter(&mut self) {
-        let textures = self.plan.as_ref().map_or(&[][..], |plan| &plan.textures);
+        let textures = self
+            .plan
+            .as_ref()
+            .map_or_default(|plan| plan.textures.as_slice());
         self.asset_search
             .update(textures, &self.filter, self.category);
         self.asset_tree.update(textures, &self.asset_search.matches);

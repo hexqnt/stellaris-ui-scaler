@@ -23,7 +23,7 @@ fn conflicting_frame_structure_uses_the_same_fallback_in_any_order() {
     for order in [[0, 1, 2], [2, 0, 1], [1, 2, 0]] {
         let atlas = crate::test_images::mixed_atlas(order);
         let features = ImageFeatures::analyze(&atlas, 3).unwrap();
-        assert!(matches!(features.consensus(), Consensus::Mixed));
+        std::assert_matches!(features.consensus(), Consensus::Mixed);
         let choice = select(
             "gfx/atlas.dds",
             Category::SpriteSheet,
@@ -53,10 +53,7 @@ fn empty_and_uniform_frames_do_not_hide_detailed_states() {
         }
     });
     let features = ImageFeatures::analyze(&atlas, 4).unwrap();
-    assert!(matches!(
-        features.consensus(),
-        Consensus::Agreed(Content::Detailed)
-    ));
+    std::assert_matches!(features.consensus(), Consensus::Agreed(Content::Detailed));
     assert_eq!(
         select(
             "gfx/atlas.dds",
@@ -99,10 +96,7 @@ fn low_contrast_random_variation_is_not_confused_with_a_periodic_pattern() {
         Rgba([value, value, value, 255])
     });
     let features = ImageFeatures::analyze(&pattern, 1).unwrap();
-    assert!(matches!(
-        features.consensus(),
-        Consensus::Agreed(Content::Detailed)
-    ));
+    std::assert_matches!(features.consensus(), Consensus::Agreed(Content::Detailed));
     assert_eq!(
         select(
             "gfx/icon.dds",

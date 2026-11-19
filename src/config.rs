@@ -98,14 +98,14 @@ impl Profile {
                         .iter()
                         .flat_map(|settings| &settings.source_mods)
                 )
-                .all(|path| !path.as_os_str().is_empty()),
+                .all(|path| !path.is_empty()),
             "Source mod path must not be empty"
         );
         ensure!(
             self.auto_source_mods
                 .as_ref()
                 .and_then(|settings| settings.user_data_dir.as_ref())
-                .is_none_or(|path| !path.as_os_str().is_empty()),
+                .is_none_or(|path| !path.is_empty()),
             "User data directory must not be empty"
         );
         ensure!(

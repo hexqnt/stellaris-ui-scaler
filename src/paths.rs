@@ -40,7 +40,7 @@ fn windows_path(path: &str) -> Cow<'_, str> {
     if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
         return Cow::Owned(format!("//{}", path.replace('\\', "/")));
     }
-    let path = path.strip_prefix(r"\\?\").unwrap_or(path);
+    let path = path.trim_prefix(r"\\?\");
     if path.contains('\\') {
         Cow::Owned(path.replace('\\', "/"))
     } else {
@@ -63,6 +63,6 @@ mod tests {
         ] {
             assert_eq!(windows_path(native), expected);
         }
-        assert!(matches!(windows_path("gfx/Icon.png"), Cow::Borrowed(_)));
+        std::assert_matches!(windows_path("gfx/Icon.png"), Cow::Borrowed(_));
     }
 }

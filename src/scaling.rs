@@ -66,18 +66,20 @@ pub fn scaled_atom(node: &Node<'_>, scale: Scale, edits: &mut Edits) {
     if !value.is_finite() || value == 0.0 {
         return;
     }
-    let number = if value.fract() == 0.0 {
-        format!("{:.0}", scale.pixels(value))
-    } else {
-        format!("{:.3}", value * scale.get())
-    };
+    let number = std::fmt::from_fn(|f| {
+        if value.fract() == 0.0 {
+            write!(f, "{:.0}", scale.pixels(value))
+        } else {
+            write!(f, "{:.3}", value * scale.get())
+        }
+    });
     let quoted = matches!(&node.value, Value::Atom { text, .. } if text.starts_with('"'));
     edits.atom(
         node,
         if quoted {
             format!("\"{number}\"")
         } else {
-            number
+            number.to_string()
         },
     );
 }

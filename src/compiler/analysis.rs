@@ -110,7 +110,7 @@ impl Analysis {
         });
         let render_target = block.key == Some("portraitType")
             || source.as_bytes()[block.span.clone()]
-                .windows(b"rendertarget".len())
+                .array_windows::<{ b"rendertarget".len() }>()
                 .any(|window| window.eq_ignore_ascii_case(b"rendertarget"));
         let valid_primary =
             block

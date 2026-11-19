@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use image::Rgba;
 
+use super::*;
 use crate::{
     assets::{Installation, Source},
     compiler::TextureAsset,
@@ -9,7 +10,6 @@ use crate::{
     fonts,
     test_support::Temp,
 };
-use super::*;
 
 fn icon(horizontal: bool) -> RgbaImage {
     RgbaImage::from_fn(32, 32, |x, y| {

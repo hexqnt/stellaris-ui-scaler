@@ -99,7 +99,7 @@ fn tokens(mut source: &str) -> Option<Vec<Token<'_>>> {
             break;
         }
         if source.starts_with("//") {
-            source = source.split_once('\n').map_or("", |(_, tail)| tail);
+            source = source.split_once('\n').map_or_default(|(_, tail)| tail);
             continue;
         }
         match source.as_bytes()[0] {
@@ -222,8 +222,8 @@ mod tests {
         "name" "Some \"name\"""#,
         )
         .unwrap();
-        assert!(matches!(&tokens[1], Token::Text(value) if value == r"D:\SteamLibrary"));
-        assert!(matches!(&tokens[3], Token::Text(value) if value == "Some \"name\""));
+        std::assert_matches!(&tokens[1], Token::Text(value) if value == r"D:\SteamLibrary");
+        std::assert_matches!(&tokens[3], Token::Text(value) if value == "Some \"name\"");
     }
 
     #[test]
