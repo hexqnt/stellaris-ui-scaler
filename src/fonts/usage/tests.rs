@@ -1,5 +1,6 @@
-use super::*;
 use crate::fonts::Group;
+
+use super::*;
 
 #[test]
 fn specialized_areas_cover_menu_loading_status_messages_and_bottom_bar_names() {

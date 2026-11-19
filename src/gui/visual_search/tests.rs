@@ -1,4 +1,8 @@
-use super::*;
+use std::{
+    collections::BTreeMap,
+    time::{Duration, Instant},
+};
+
 use crate::{
     assets::{Installation, Source},
     compiler::TextureAsset,
@@ -6,10 +10,7 @@ use crate::{
     fonts,
     test_support::Temp,
 };
-use std::{
-    collections::BTreeMap,
-    time::{Duration, Instant},
-};
+use super::*;
 
 fn workspace(count: usize) -> (Temp, Studio, Arc<egui::ColorImage>) {
     let temp = Temp::new();

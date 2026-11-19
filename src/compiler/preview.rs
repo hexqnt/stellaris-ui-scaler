@@ -15,11 +15,92 @@ use crate::{
 
 use super::{BuildPlan, Control, TextureAsset};
 
+/// Оригинал и независимые результаты кандидатов с индексами исходного списка.
+pub enum PreviewEvent {
+    Source {
+        image: Arc<image::RgbaImage>,
+        features: Option<crate::config::ImageFeatures>,
+    },
+    Candidate {
+        index: usize,
+        image: Result<image::RgbaImage>,
+    },
+}
+
 pub struct TexturePreview {
     pub images: Vec<(String, image::RgbaImage)>,
     pub features: Option<crate::config::ImageFeatures>,
 }
 
+/// Сохраняет нейросетевую сессию между запросами предпросмотра.
+#[derive(Default)]
+pub struct PreviewSession {
+    processor: Mutex<textures::Processor>,
+}
+
+impl PreviewSession {
+    /// Отправляет оригинал до запуска кандидатов, затем каждый результат по готовности. Обработчик результатов вызывается параллельно из рабочих потоков Rayon. Запросы одной сессии обрабатываются по очереди.
+    ///
+    /// # Errors
+    /// Возвращает ошибку подготовки исходника или отмены; ошибки кандидатов передаются событиями.
+    pub fn render(
+        &self,
+        plan: &BuildPlan,
+        profile: &Profile,
+        asset: &TextureAsset,
+        algorithms: &[crate::config::Algorithm],
+        control: &Control,
+        emit: &(impl Fn(PreviewEvent) + Sync),
+    ) -> Result<()> {
+        profile.check()?;
+        control.check()?;
+        let source = Arc::new(textures::decode(&plan.game.read(&asset.path)?)?);
+        let policy = asset.policy(profile);
+        let needs_features = policy.needs_pixel_analysis()
+            || algorithms
+                .iter()
+                .any(|&algorithm| policy.with_algorithm(algorithm).needs_pixel_analysis());
+        let features = needs_features
+            .then(|| crate::config::ImageFeatures::analyze(&source, asset.frames))
+            .transpose()?;
+        control.check()?;
+        emit(PreviewEvent::Source {
+            image: Arc::clone(&source),
+            features,
+        });
+        if algorithms.is_empty() {
+            return control.check();
+        }
+        let budget = CpuBudget::current();
+        let tasks =
+            NonZeroUsize::new(algorithms.len().min(budget.threads())).unwrap_or(NonZeroUsize::MIN);
+        let mut session = self
+            .processor
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Preview session lock poisoned"))?;
+        session.set_neural_threads(budget.per_task(tasks));
+        let processor = &*session;
+        algorithms
+            .par_iter()
+            .enumerate()
+            .for_each(|(index, &algorithm)| {
+                if control.check().is_err() {
+                    return;
+                }
+                let options = policy
+                    .with_algorithm(algorithm)
+                    .processing(features.as_ref())
+                    .options;
+                let image =
+                    render_texture(asset, policy.scale, &source, &options, processor, control);
+                if control.check().is_ok() {
+                    emit(PreviewEvent::Candidate { index, image });
+                }
+            });
+        drop(session);
+        control.check()
+    }
+}
 /// # Errors
 /// Возвращает ошибку профиля, чтения, декодирования или обработки изображения.
 pub fn preview(
@@ -121,84 +202,3 @@ pub fn preview_candidates_with_analysis(
     Ok(TexturePreview { images, features })
 }
 
-/// Оригинал и независимые результаты кандидатов с индексами исходного списка.
-pub enum PreviewEvent {
-    Source {
-        image: Arc<image::RgbaImage>,
-        features: Option<crate::config::ImageFeatures>,
-    },
-    Candidate {
-        index: usize,
-        image: Result<image::RgbaImage>,
-    },
-}
-
-/// Сохраняет нейросетевую сессию между запросами предпросмотра.
-#[derive(Default)]
-pub struct PreviewSession {
-    processor: Mutex<textures::Processor>,
-}
-
-impl PreviewSession {
-    /// Отправляет оригинал до запуска кандидатов, затем каждый результат по готовности. Обработчик результатов вызывается параллельно из рабочих потоков Rayon. Запросы одной сессии обрабатываются по очереди.
-    ///
-    /// # Errors
-    /// Возвращает ошибку подготовки исходника или отмены; ошибки кандидатов передаются событиями.
-    pub fn render(
-        &self,
-        plan: &BuildPlan,
-        profile: &Profile,
-        asset: &TextureAsset,
-        algorithms: &[crate::config::Algorithm],
-        control: &Control,
-        emit: &(impl Fn(PreviewEvent) + Sync),
-    ) -> Result<()> {
-        profile.check()?;
-        control.check()?;
-        let source = Arc::new(textures::decode(&plan.game.read(&asset.path)?)?);
-        let policy = asset.policy(profile);
-        let needs_features = policy.needs_pixel_analysis()
-            || algorithms
-                .iter()
-                .any(|&algorithm| policy.with_algorithm(algorithm).needs_pixel_analysis());
-        let features = needs_features
-            .then(|| crate::config::ImageFeatures::analyze(&source, asset.frames))
-            .transpose()?;
-        control.check()?;
-        emit(PreviewEvent::Source {
-            image: Arc::clone(&source),
-            features,
-        });
-        if algorithms.is_empty() {
-            return control.check();
-        }
-        let budget = CpuBudget::current();
-        let tasks =
-            NonZeroUsize::new(algorithms.len().min(budget.threads())).unwrap_or(NonZeroUsize::MIN);
-        let mut session = self
-            .processor
-            .lock()
-            .map_err(|_| anyhow::anyhow!("Preview session lock poisoned"))?;
-        session.set_neural_threads(budget.per_task(tasks));
-        let processor = &*session;
-        algorithms
-            .par_iter()
-            .enumerate()
-            .for_each(|(index, &algorithm)| {
-                if control.check().is_err() {
-                    return;
-                }
-                let options = policy
-                    .with_algorithm(algorithm)
-                    .processing(features.as_ref())
-                    .options;
-                let image =
-                    render_texture(asset, policy.scale, &source, &options, processor, control);
-                if control.check().is_ok() {
-                    emit(PreviewEvent::Candidate { index, image });
-                }
-            });
-        drop(session);
-        control.check()
-    }
-}

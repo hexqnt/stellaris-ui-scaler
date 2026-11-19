@@ -3,19 +3,16 @@ mod index;
 mod view;
 mod worker;
 
-#[cfg(test)]
-mod tests;
-
 use std::sync::Arc;
 
 use eframe::egui::{self, TextureHandle};
 use image::RgbaImage;
 
-use super::Studio;
 use crate::{
     compiler::BuildPlan,
     config::{ImageFeatures, Profile},
 };
+use super::Studio;
 use index::{Hit, Index};
 use worker::{Completed, Input, Job};
 
@@ -148,3 +145,6 @@ impl Studio {
         }
     }
 }
+#[cfg(test)]
+mod tests;
+

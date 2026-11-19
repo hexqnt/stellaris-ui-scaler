@@ -2,18 +2,6 @@ use eframe::egui::{self, Color32, Pos2, Rect, TextureHandle, Vec2};
 
 use super::{ComparisonMode, PreviewBackground, PreviewImage, Studio, icons, theme};
 
-fn image_interaction(ui: &egui::Ui, response: egui::Response, split: bool) -> egui::Response {
-    let cursor = if response.dragged_by(egui::PointerButton::Middle) {
-        ui.scroll_with_delta_animation(response.drag_delta(), egui::style::ScrollAnimation::none());
-        egui::CursorIcon::Grabbing
-    } else if split {
-        egui::CursorIcon::ResizeHorizontal
-    } else {
-        egui::CursorIcon::PointingHand
-    };
-    response.on_hover_and_drag_cursor(cursor)
-}
-
 impl Studio {
     pub(super) fn accept_preview(
         &mut self,
@@ -450,3 +438,15 @@ impl Studio {
         }
     }
 }
+fn image_interaction(ui: &egui::Ui, response: egui::Response, split: bool) -> egui::Response {
+    let cursor = if response.dragged_by(egui::PointerButton::Middle) {
+        ui.scroll_with_delta_animation(response.drag_delta(), egui::style::ScrollAnimation::none());
+        egui::CursorIcon::Grabbing
+    } else if split {
+        egui::CursorIcon::ResizeHorizontal
+    } else {
+        egui::CursorIcon::PointingHand
+    };
+    response.on_hover_and_drag_cursor(cursor)
+}
+

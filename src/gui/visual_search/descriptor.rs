@@ -7,6 +7,9 @@ const SIDE: u32 = 12;
 const CELLS: usize = (SIDE * SIDE) as usize;
 const MIN_DEVIATION: f32 = 0.05;
 
+const COLOR_BINS: usize = 4;
+const HISTOGRAM_SIZE: usize = COLOR_BINS * COLOR_BINS * COLOR_BINS;
+
 type Colors = [[f32; 3]; CELLS];
 type Luminance = [f32; CELLS];
 
@@ -53,68 +56,6 @@ impl Region {
 pub(super) struct Descriptor {
     pixels: [[f32; 4]; CELLS],
     dimensions: [u32; 2],
-}
-
-/// Проверенный запрос со статистикой, общей для сравнения со всеми кандидатами.
-pub(super) struct Query {
-    colors: Colors,
-    luminance: Luminance,
-    background: [f32; 3],
-    histogram: Histogram,
-    dimensions: [u32; 2],
-}
-
-fn luma([r, g, b]: [f32; 3]) -> f32 {
-    0.2126f32.mul_add(r, 0.7152f32.mul_add(g, 0.0722 * b))
-}
-
-fn normalized(colors: &Colors) -> Luminance {
-    let mut values = colors.map(luma);
-    let mean = values.iter().sum::<f32>() / CELLS as f32;
-    let variance = values
-        .iter()
-        .map(|value| (value - mean).powi(2))
-        .sum::<f32>()
-        / CELLS as f32;
-    let deviation = variance.sqrt().max(MIN_DEVIATION);
-    for value in &mut values {
-        *value = (*value - mean) / deviation;
-    }
-    values
-}
-
-impl Query {
-    pub fn new(image: &RgbaImage) -> Result<Self> {
-        ensure!(image.width() > 0 && image.height() > 0, "Empty query image");
-        ensure!(
-            image.pixels().any(|pixel| pixel[3] >= 16),
-            "Query image is fully transparent"
-        );
-        let descriptor = Descriptor::new(image, Region::whole(image));
-        let mut background = [0.0; 3];
-        let mut weight = 0.0f32;
-        for (i, pixel) in descriptor.pixels.iter().enumerate() {
-            let x = i % SIDE as usize;
-            let y = i / SIDE as usize;
-            if x == 0 || y == 0 || x == SIDE as usize - 1 || y == SIDE as usize - 1 {
-                for (sum, channel) in background.iter_mut().zip(&pixel[..3]) {
-                    *sum = channel.mul_add(pixel[3], *sum);
-                }
-                weight += pixel[3];
-            }
-        }
-        for channel in &mut background {
-            *channel /= weight.max(1.0);
-        }
-        let colors = descriptor.composite(background);
-        Ok(Self {
-            colors,
-            luminance: normalized(&colors),
-            background,
-            histogram: Histogram::new(&colors),
-            dimensions: descriptor.dimensions,
-        })
-    }
 }
 
 impl Descriptor {
@@ -176,8 +117,48 @@ impl Descriptor {
     }
 }
 
-const COLOR_BINS: usize = 4;
-const HISTOGRAM_SIZE: usize = COLOR_BINS * COLOR_BINS * COLOR_BINS;
+/// Проверенный запрос со статистикой, общей для сравнения со всеми кандидатами.
+pub(super) struct Query {
+    colors: Colors,
+    luminance: Luminance,
+    background: [f32; 3],
+    histogram: Histogram,
+    dimensions: [u32; 2],
+}
+
+impl Query {
+    pub fn new(image: &RgbaImage) -> Result<Self> {
+        ensure!(image.width() > 0 && image.height() > 0, "Empty query image");
+        ensure!(
+            image.pixels().any(|pixel| pixel[3] >= 16),
+            "Query image is fully transparent"
+        );
+        let descriptor = Descriptor::new(image, Region::whole(image));
+        let mut background = [0.0; 3];
+        let mut weight = 0.0f32;
+        for (i, pixel) in descriptor.pixels.iter().enumerate() {
+            let x = i % SIDE as usize;
+            let y = i / SIDE as usize;
+            if x == 0 || y == 0 || x == SIDE as usize - 1 || y == SIDE as usize - 1 {
+                for (sum, channel) in background.iter_mut().zip(&pixel[..3]) {
+                    *sum = channel.mul_add(pixel[3], *sum);
+                }
+                weight += pixel[3];
+            }
+        }
+        for channel in &mut background {
+            *channel /= weight.max(1.0);
+        }
+        let colors = descriptor.composite(background);
+        Ok(Self {
+            colors,
+            luminance: normalized(&colors),
+            background,
+            histogram: Histogram::new(&colors),
+            dimensions: descriptor.dimensions,
+        })
+    }
+}
 
 struct Histogram([f32; HISTOGRAM_SIZE]);
 
@@ -228,3 +209,22 @@ impl Histogram {
         .min(1.0)
     }
 }
+fn luma([r, g, b]: [f32; 3]) -> f32 {
+    0.2126f32.mul_add(r, 0.7152f32.mul_add(g, 0.0722 * b))
+}
+
+fn normalized(colors: &Colors) -> Luminance {
+    let mut values = colors.map(luma);
+    let mean = values.iter().sum::<f32>() / CELLS as f32;
+    let variance = values
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f32>()
+        / CELLS as f32;
+    let deviation = variance.sqrt().max(MIN_DEVIATION);
+    for value in &mut values {
+        *value = (*value - mean) / deviation;
+    }
+    values
+}
+

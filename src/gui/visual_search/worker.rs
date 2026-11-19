@@ -10,24 +10,18 @@ use eframe::egui;
 use image::RgbaImage;
 use rayon::prelude::*;
 
-use super::{
-    PAGE_SIZE,
-    descriptor::Query,
-    index::{AssetPreview, Hit, Index},
-};
 use crate::{
     compiler::{BuildPlan, Control},
     config::Profile,
 };
 
-type Page = Vec<(Hit, AssetPreview)>;
+use super::{
+    PAGE_SIZE,
+    descriptor::Query,
+    index::{AssetPreview, Hit, Index},
+};
 
-pub(super) struct SearchResult {
-    pub index: Arc<Index>,
-    pub query: RgbaImage,
-    pub ranked: Arc<[Hit]>,
-    pub page: Page,
-}
+type Page = Vec<(Hit, AssetPreview)>;
 
 pub(super) enum Completed {
     Search(SearchResult),
@@ -66,16 +60,17 @@ impl Input {
     }
 }
 
+pub(super) struct SearchResult {
+    pub index: Arc<Index>,
+    pub query: RgbaImage,
+    pub ranked: Arc<[Hit]>,
+    pub page: Page,
+}
+
 pub(super) struct Job {
     receiver: mpsc::Receiver<Result<Completed, String>>,
     pub control: Control,
     pub progress: Progress,
-}
-
-impl Drop for Job {
-    fn drop(&mut self) {
-        self.control.cancel();
-    }
 }
 
 impl Job {
@@ -167,6 +162,12 @@ impl Job {
                 Some(Err("Image search worker stopped unexpectedly".into()))
             }
         }
+    }
+}
+
+impl Drop for Job {
+    fn drop(&mut self) {
+        self.control.cancel();
     }
 }
 

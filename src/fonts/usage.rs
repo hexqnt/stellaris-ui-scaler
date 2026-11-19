@@ -1,65 +1,12 @@
+mod areas;
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use crate::pdx::{Document, Node};
 
 use super::{Catalog, Group};
 
-mod areas;
 pub use areas::UsageArea;
-
-impl Group {
-    #[must_use]
-    pub fn uses_area(&self, area: UsageArea) -> bool {
-        self.usages.iter().any(|usage| usage.area == Some(area))
-            || UsageArea::in_group(&self.name) == Some(area)
-    }
-
-    pub fn usage_areas(&self) -> impl Iterator<Item = UsageArea> + '_ {
-        UsageArea::ALL
-            .iter()
-            .copied()
-            .filter(|&area| self.uses_area(area))
-    }
-
-    /// Типичная роль штатной группы; фактические назначения из модов перечислены отдельно.
-    #[must_use]
-    pub fn usage_note(&self) -> Option<&'static str> {
-        Some(match self.name.as_str() {
-            "cg_16b" => {
-                "Common interface text: descriptions, buttons, tooltips and numerical values."
-            }
-            "malgun_goth_24" => {
-                "Window and section headings; planet, fleet, ship and station names."
-            }
-            "hoi_16mbs" => {
-                "Map resource amounts and ship counts; also chat and some station controls."
-            }
-            "jura" => {
-                "Start, load, multiplayer, settings, credits and quit labels in the main menu."
-            }
-            "large_title_font" => {
-                "Prominent headings and status messages, including pause and saving."
-            }
-            "large_title_font_28" => {
-                "System and empire names in the bottom map bar; also some DLC headings and prices."
-            }
-            "load_screen" => "Loading progress text and loading screen tips.",
-            "map_name_border" => {
-                "Likely empire names inside map borders, inferred from the built-in group name."
-            }
-            "map_name_nebula" => {
-                "Likely nebula names on the map, inferred from the built-in group name."
-            }
-            "map_name_sector" => {
-                "Likely sector names on the map, inferred from the built-in group name."
-            }
-            "standard_font" | "null_font" => {
-                "Built-in font group without a confirmed interface role. Its name alone does not establish where the engine uses it."
-            }
-            _ => return None,
-        })
-    }
-}
 
 /// Явное назначение группы шрифтов в эффективном GUI игры и выбранных модов.
 #[derive(Debug, Clone)]
@@ -112,6 +59,60 @@ impl Index {
                 .usages
                 .sort_by(|a, b| (&a.file, a.line).cmp(&(&b.file, b.line)));
         }
+    }
+}
+
+impl Group {
+    #[must_use]
+    pub fn uses_area(&self, area: UsageArea) -> bool {
+        self.usages.iter().any(|usage| usage.area == Some(area))
+            || UsageArea::in_group(&self.name) == Some(area)
+    }
+
+    pub fn usage_areas(&self) -> impl Iterator<Item = UsageArea> + '_ {
+        UsageArea::ALL
+            .iter()
+            .copied()
+            .filter(|&area| self.uses_area(area))
+    }
+
+    /// Типичная роль штатной группы; фактические назначения из модов перечислены отдельно.
+    #[must_use]
+    pub fn usage_note(&self) -> Option<&'static str> {
+        Some(match self.name.as_str() {
+            "cg_16b" => {
+                "Common interface text: descriptions, buttons, tooltips and numerical values."
+            }
+            "malgun_goth_24" => {
+                "Window and section headings; planet, fleet, ship and station names."
+            }
+            "hoi_16mbs" => {
+                "Map resource amounts and ship counts; also chat and some station controls."
+            }
+            "jura" => {
+                "Start, load, multiplayer, settings, credits and quit labels in the main menu."
+            }
+            "large_title_font" => {
+                "Prominent headings and status messages, including pause and saving."
+            }
+            "large_title_font_28" => {
+                "System and empire names in the bottom map bar; also some DLC headings and prices."
+            }
+            "load_screen" => "Loading progress text and loading screen tips.",
+            "map_name_border" => {
+                "Likely empire names inside map borders, inferred from the built-in group name."
+            }
+            "map_name_nebula" => {
+                "Likely nebula names on the map, inferred from the built-in group name."
+            }
+            "map_name_sector" => {
+                "Likely sector names on the map, inferred from the built-in group name."
+            }
+            "standard_font" | "null_font" => {
+                "Built-in font group without a confirmed interface role. Its name alone does not establish where the engine uses it."
+            }
+            _ => return None,
+        })
     }
 }
 

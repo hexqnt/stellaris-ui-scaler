@@ -28,12 +28,6 @@ pub(super) struct Picker<T> {
     active: Option<(T, FileDialog)>,
 }
 
-impl<T> Default for Picker<T> {
-    fn default() -> Self {
-        Self { active: None }
-    }
-}
-
 impl<T> Picker<T> {
     pub(super) fn open(&mut self, target: T, kind: Kind, current: &Path, title: &str) {
         let mut dialog = FileDialog::new().as_modal(true).title(title);
@@ -119,6 +113,12 @@ impl Picker<Target> {
         if button.clicked() {
             self.open(target, kind, current, title);
         }
+    }
+}
+
+impl<T> Default for Picker<T> {
+    fn default() -> Self {
+        Self { active: None }
     }
 }
 

@@ -42,8 +42,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use temp::Temp;
-
 use stellaris_ui_scaler::{
     assets::{Installation, safe_relative},
     compiler::{self, Control},
@@ -52,6 +50,8 @@ use stellaris_ui_scaler::{
     pdx::{Document, Edits, Node},
     scaling, textures, validation,
 };
+
+use temp::Temp;
 
 fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);

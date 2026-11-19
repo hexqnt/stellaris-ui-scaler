@@ -3,15 +3,16 @@ use std::{
     sync::{Arc, atomic::Ordering},
 };
 
-use super::super::{path_picker::Kind, theme};
-
 use eframe::egui;
 
-use super::{Input, ResultRow, VisualSearch, worker::Progress};
 use crate::{
     compiler::{BuildPlan, TextureAsset},
     config::Profile,
 };
+
+use super::super::{path_picker::Kind, theme};
+
+use super::{Input, ResultRow, VisualSearch, worker::Progress};
 
 const ROW_HEIGHT: f32 = 112.0;
 
@@ -43,6 +44,12 @@ impl Columns {
             distance,
         }
     }
+}
+
+#[derive(Default)]
+pub(super) struct ListResponse {
+    pub selected: Option<usize>,
+    pub load_more: bool,
 }
 
 impl ResultRow {
@@ -152,12 +159,6 @@ impl ResultRow {
         }
         clicked
     }
-}
-
-#[derive(Default)]
-pub(super) struct ListResponse {
-    pub selected: Option<usize>,
-    pub load_more: bool,
 }
 
 impl VisualSearch {

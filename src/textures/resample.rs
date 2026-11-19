@@ -32,17 +32,6 @@ const SRGB: [f32; 256] = {
 // Таблица точна для всех входных u8: powf вычисляется лишь при первом использовании линейного пространства.
 static LINEAR: LazyLock<[f32; 256]> = LazyLock::new(|| SRGB.map(to_linear));
 
-// Отсчёты одного окна последовательны; индекс нужен только для начала окна.
-struct Window {
-    source_start: usize,
-    weights: Range<usize>,
-}
-
-struct Weights {
-    windows: Vec<Window>,
-    values: Vec<f32>,
-}
-
 #[derive(Clone, Copy, PartialEq)]
 enum Filter {
     Nearest,
@@ -69,6 +58,17 @@ impl TryFrom<Algorithm> for Filter {
             }
         })
     }
+}
+
+// Отсчёты одного окна последовательны; индекс нужен только для начала окна.
+struct Window {
+    source_start: usize,
+    weights: Range<usize>,
+}
+
+struct Weights {
+    windows: Vec<Window>,
+    values: Vec<f32>,
 }
 
 impl Weights {
@@ -123,18 +123,6 @@ impl Weights {
     fn par_iter(&self) -> impl IndexedParallelIterator<Item = (usize, &[f32])> {
         self.windows.par_iter().map(|window| self.window(window))
     }
-}
-
-/// # Errors
-/// Возвращает ошибку недопустимых размеров изображения.
-pub(super) fn resize(
-    source: &RgbaImage,
-    width: u32,
-    height: u32,
-    options: &TextureOptions,
-) -> Result<RgbaImage> {
-    let resampler = Resampler::new(source.dimensions(), (width, height), options)?;
-    Ok(resampler.resize(source.view(0, 0, source.width(), source.height())))
 }
 
 /// Один набор весов для всех одинаковых кадров; исходные строки читаются без копии RGBA.
@@ -278,6 +266,18 @@ impl<'a> Resampler<'a> {
         }
         result
     }
+}
+
+/// # Errors
+/// Возвращает ошибку недопустимых размеров изображения.
+pub(super) fn resize(
+    source: &RgbaImage,
+    width: u32,
+    height: u32,
+    options: &TextureOptions,
+) -> Result<RgbaImage> {
+    let resampler = Resampler::new(source.dimensions(), (width, height), options)?;
+    Ok(resampler.resize(source.view(0, 0, source.width(), source.height())))
 }
 
 fn encode_pixels<const LINEAR: bool>(

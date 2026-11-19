@@ -15,14 +15,6 @@ struct Node {
     open: Option<bool>,
 }
 
-#[derive(Default)]
-struct Interaction {
-    clicked: Option<Selection>,
-    reveal: Option<usize>,
-    reveal_rect: Option<egui::Rect>,
-    animating: bool,
-}
-
 impl Node {
     fn set_open(&mut self, open: bool) {
         self.open = Some(open);
@@ -115,6 +107,14 @@ impl Node {
             }
         });
     }
+}
+
+#[derive(Default)]
+struct Interaction {
+    clicked: Option<Selection>,
+    reveal: Option<usize>,
+    reveal_rect: Option<egui::Rect>,
+    animating: bool,
 }
 
 #[derive(Default)]

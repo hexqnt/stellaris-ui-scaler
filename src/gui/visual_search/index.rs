@@ -4,12 +4,13 @@ use anyhow::{Result, ensure};
 use image::{GenericImageView, RgbaImage, imageops};
 use rayon::prelude::*;
 
-use super::descriptor::{Descriptor, Query, Region};
 use crate::{
     compiler::{BuildPlan, Control},
     config::{ImageFeatures, Scale},
     textures,
 };
+
+use super::descriptor::{Descriptor, Query, Region};
 
 struct Entry {
     asset: usize,
@@ -18,22 +19,52 @@ struct Entry {
     descriptor: Descriptor,
 }
 
+impl Entry {
+    fn read(plan: &BuildPlan, asset: usize, control: &Control) -> Result<Vec<Self>> {
+        let texture = &plan.textures[asset];
+        let image = textures::decode(&plan.game.read(&texture.path)?)?;
+        ensure!(
+            image.dimensions() == (texture.width, texture.height),
+            "Texture dimensions changed: {}",
+            texture.path
+        );
+        ensure!(
+            texture.frames > 0 && texture.frames <= image.width(),
+            "Invalid frame layout: {}",
+            texture.path
+        );
+        let width = image.width() / texture.frames;
+        let mut entries = Vec::new();
+        for frame in 0..texture.frames {
+            control.check()?;
+            let region = Region {
+                x: frame * width,
+                y: 0,
+                width,
+                height: image.height(),
+            };
+            let Some(trimmed) = region.opaque_bounds(&image) else {
+                continue;
+            };
+            for candidate in [Some(region), (trimmed != region).then_some(trimmed)]
+                .into_iter()
+                .flatten()
+            {
+                entries.push(Self {
+                    asset,
+                    frame,
+                    region: candidate,
+                    descriptor: Descriptor::new(&image, candidate),
+                });
+            }
+        }
+        Ok(entries)
+    }
+}
+
 pub(super) struct Index {
     entries: Vec<Entry>,
     pub skipped: usize,
-}
-
-#[derive(Clone, Copy)]
-pub(super) struct Hit {
-    pub asset: usize,
-    pub frame: u32,
-    pub region: Region,
-    pub distance: f32,
-}
-
-pub(super) struct AssetPreview {
-    pub image: RgbaImage,
-    pub features: ImageFeatures,
 }
 
 impl Index {
@@ -101,47 +132,12 @@ impl Index {
     }
 }
 
-impl Entry {
-    fn read(plan: &BuildPlan, asset: usize, control: &Control) -> Result<Vec<Self>> {
-        let texture = &plan.textures[asset];
-        let image = textures::decode(&plan.game.read(&texture.path)?)?;
-        ensure!(
-            image.dimensions() == (texture.width, texture.height),
-            "Texture dimensions changed: {}",
-            texture.path
-        );
-        ensure!(
-            texture.frames > 0 && texture.frames <= image.width(),
-            "Invalid frame layout: {}",
-            texture.path
-        );
-        let width = image.width() / texture.frames;
-        let mut entries = Vec::new();
-        for frame in 0..texture.frames {
-            control.check()?;
-            let region = Region {
-                x: frame * width,
-                y: 0,
-                width,
-                height: image.height(),
-            };
-            let Some(trimmed) = region.opaque_bounds(&image) else {
-                continue;
-            };
-            for candidate in [Some(region), (trimmed != region).then_some(trimmed)]
-                .into_iter()
-                .flatten()
-            {
-                entries.push(Self {
-                    asset,
-                    frame,
-                    region: candidate,
-                    descriptor: Descriptor::new(&image, candidate),
-                });
-            }
-        }
-        Ok(entries)
-    }
+#[derive(Clone, Copy)]
+pub(super) struct Hit {
+    pub asset: usize,
+    pub frame: u32,
+    pub region: Region,
+    pub distance: f32,
 }
 
 impl Hit {
@@ -164,6 +160,11 @@ impl Hit {
         let image = imageops::resize(&*view, width, height, imageops::FilterType::Triangle);
         Ok(AssetPreview { image, features })
     }
+}
+
+pub(super) struct AssetPreview {
+    pub image: RgbaImage,
+    pub features: ImageFeatures,
 }
 
 #[cfg(test)]
