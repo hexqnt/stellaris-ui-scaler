@@ -1,5 +1,6 @@
 name = "Stellaris UI Scaler 4K"
 mod_version = "0.1.0"
+picture = "/home/v_0ver/Downloads/Neon 2× UI HUD Over Space.png"
 source_mods = []
 disabled_source_mods = ["/home/v_0ver/ssd/SteamLibrary/steamapps/workshop/content/281990/681483874"]
 resolution = [

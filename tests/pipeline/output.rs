@@ -392,7 +392,7 @@ fn rebuild_recovers_when_only_the_launcher_descriptor_remains() {
     let fixture = fixture();
     let control = Control::default();
     let profile = Profile::default();
-    let output = fixture.0.join("mod");
+    let output = fixture.0.canonicalize().unwrap().join("mod");
     let launcher = output.with_added_extension("mod");
     let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
     compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
