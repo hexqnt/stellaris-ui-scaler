@@ -9,7 +9,6 @@ mod output;
 mod preview;
 mod texture_cache;
 mod texture_pipeline;
-mod version;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -169,13 +168,6 @@ pub struct BuildPlan {
 }
 
 impl BuildPlan {
-    #[must_use]
-    pub fn version_warning(&self) -> Option<&Diagnostic> {
-        self.diagnostics
-            .iter()
-            .find(|entry| entry.rule == version::RULE)
-    }
-
     #[must_use]
     pub fn report(&self) -> ScanReport<'_> {
         ScanReport {

@@ -202,11 +202,7 @@ fn progress(event: Progress) {
     }
 }
 fn scan(game: &Path, profile: &Profile, control: &Control) -> Result<compiler::BuildPlan> {
-    let plan = compiler::plan_with_profile(game, profile, control, &mut progress)?;
-    if let Some(warning) = plan.version_warning() {
-        eprintln!("Warning: {}", warning.message);
-    }
-    Ok(plan)
+    compiler::plan_with_profile(game, profile, control, &mut progress)
 }
 
 /// # Errors

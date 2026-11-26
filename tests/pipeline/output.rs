@@ -1,23 +1,23 @@
 use super::*;
 
 #[test]
-fn game_versions_warn_without_blocking_scan_or_build() {
+fn game_versions_do_not_warn_or_block_scan_or_build() {
     let fixture = fixture();
     let game = fixture.0.join("game");
     let control = Control::default();
     let profile = Profile::default();
     let output = fixture.0.join("mod");
-    for (version, should_warn) in [
-        (Some("v4.5.2"), false),
-        (Some("v4.5.4"), false),
-        (Some("4.5.100"), false),
-        (Some("v4.4.9"), true),
-        (Some("v4.6.0"), true),
-        (Some("v5.5.0"), true),
-        (Some("v4.50.0"), true),
-        (Some("v4.5.invalid"), true),
-        (Some("v4.5.4.extra"), true),
-        (None, true),
+    for version in [
+        Some("v4.5.2"),
+        Some("v4.5.4"),
+        Some("4.5.100"),
+        Some("v4.4.9"),
+        Some("v4.6.0"),
+        Some("v5.5.0"),
+        Some("v4.50.0"),
+        Some("v4.5.invalid"),
+        Some("v4.5.4.extra"),
+        None,
     ] {
         if let Some(version) = version {
             write(
@@ -29,7 +29,7 @@ fn game_versions_warn_without_blocking_scan_or_build() {
             fs::remove_file(game.join("launcher-settings.json")).unwrap();
         }
         let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
-        assert_eq!(plan.version_warning().is_some(), should_warn, "{version:?}");
+        assert!(plan.diagnostics.iter().all(|d| d.rule != "game-version"));
         let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
         assert_eq!(
             report
@@ -37,7 +37,7 @@ fn game_versions_warn_without_blocking_scan_or_build() {
                 .iter()
                 .filter(|d| d.rule == "game-version")
                 .count(),
-            usize::from(should_warn),
+            0,
             "{version:?}"
         );
         let descriptor = fs::read_to_string(output.join("descriptor.mod")).unwrap();
