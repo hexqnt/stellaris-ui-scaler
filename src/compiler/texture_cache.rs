@@ -9,19 +9,21 @@ use crate::{
     textures,
 };
 
-use super::{Control, PIPELINE_VERSION, TextureAsset, png, preview::render_texture};
+use super::{CacheMode, Control, PIPELINE_VERSION, TextureAsset, png, preview::render_texture};
 
 pub(super) struct TextureCache {
     root: PathBuf,
     key: Vec<u8>,
+    mode: CacheMode,
 }
 
 impl TextureCache {
-    pub(super) fn open(root: PathBuf) -> Result<Self> {
+    pub(super) fn open(root: PathBuf, mode: CacheMode) -> Result<Self> {
         ensure!(!root.is_symlink(), "Cache must not be a symbolic link");
         fs::create_dir_all(&root)?;
         Ok(Self {
             root,
+            mode,
             key: Vec::with_capacity(256),
         })
     }
@@ -58,10 +60,13 @@ impl TextureCache {
         hash.update(&self.key);
         let dimensions = asset.target_dimensions(scale)?;
         let target = self.root.join(format!("{}.png", hash.finalize().to_hex()));
-        let cached = match fs::read(&target) {
-            Ok(bytes) => Some(bytes),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-            Err(error) => return Err(error.into()),
+        let cached = match self.mode {
+            CacheMode::Rebuild => None,
+            CacheMode::Reuse => match fs::read(&target) {
+                Ok(bytes) => Some(bytes),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+                Err(error) => return Err(error.into()),
+            },
         };
         Ok(PendingTexture {
             asset,

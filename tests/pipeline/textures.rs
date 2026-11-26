@@ -213,6 +213,7 @@ fn texture_batches_match_single_worker_and_recover_corrupted_resource_cache() {
             );
             let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
             assert_eq!(report.cache_hits, plan.textures.len());
+            assert_rebuild_ignores_cache(&plan, &profile, &output, &control);
             let cache = output.parent().unwrap().join(".ui-scaler-cache");
             let resource_bytes = fs::read(output.join(textures::output_name(resource))).unwrap();
             let entry = stellaris_ui_scaler::assets::files(&cache)
@@ -425,4 +426,29 @@ fn resource_icons_are_overridden_at_engine_dds_paths() {
         serde_json::from_slice(&fs::read(output.join(compiler::manifest_name())).unwrap()).unwrap();
     assert!(manifest.files.contains_key(path));
     assert!(manifest.files.contains_key(grey));
+}
+
+fn assert_rebuild_ignores_cache(
+    plan: &compiler::BuildPlan,
+    profile: &Profile,
+    output: &std::path::Path,
+    control: &Control,
+) {
+    let manifest = fs::read(output.join(compiler::manifest_name())).unwrap();
+    let rebuilt = compiler::build_with_cache(
+        plan,
+        profile,
+        output,
+        compiler::CacheMode::Rebuild,
+        control,
+        &mut |_| {},
+    )
+    .unwrap();
+    assert_eq!(rebuilt.cache_hits, 0);
+    assert_eq!(
+        fs::read(output.join(compiler::manifest_name())).unwrap(),
+        manifest
+    );
+    let reused = compiler::build(plan, profile, output, control, &mut |_| {}).unwrap();
+    assert_eq!(reused.cache_hits, plan.textures.len());
 }

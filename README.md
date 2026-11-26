@@ -58,6 +58,8 @@ Release archives include everything needed for this mode. Keep the `ai` director
 
 Run `stellaris-ui-scaler --help` for available commands. To see a command's options, add `--help`, for example `stellaris-ui-scaler build --help`.
 
+Use `build --no-cache` or enable **Build from scratch** in the GUI to reprocess every texture from source and refresh the cache.
+
 ## Credits
 
 Inspired by [Hayneken's mod](https://steamcommunity.com/sharedfiles/filedetails/?id=3801492978).

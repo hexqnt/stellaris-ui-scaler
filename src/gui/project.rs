@@ -71,6 +71,8 @@ impl Studio {
         }
     }
     pub(super) fn build_button(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        ui.checkbox(&mut self.rebuild_from_scratch, "Build from scratch")
+            .on_hover_text("Reprocess all textures from source and refresh the cache");
         if ui
             .add_enabled(
                 self.plan.is_some(),
@@ -81,11 +83,23 @@ impl Studio {
         {
             let profile = self.profile.clone();
             let output = PathBuf::from(&self.output);
+            let cache_mode = if self.rebuild_from_scratch {
+                compiler::CacheMode::Rebuild
+            } else {
+                compiler::CacheMode::Reuse
+            };
             self.built_mod = None;
             self.start(ctx, move |control, sender| {
-                let report = compiler::build(&plan, &profile, &output, &control, &mut |p| {
-                    let _ = sender.send(Event::Progress(p));
-                })?;
+                let report = compiler::build_with_cache(
+                    &plan,
+                    &profile,
+                    &output,
+                    cache_mode,
+                    &control,
+                    &mut |p| {
+                        let _ = sender.send(Event::Progress(p));
+                    },
+                )?;
                 Ok(Completed::Built {
                     output: report.output,
                     mods_directory: mod_install::suggested_directory(&plan.game.root).ok(),

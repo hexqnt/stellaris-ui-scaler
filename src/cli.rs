@@ -45,6 +45,8 @@ enum Command {
         output: PathBuf,
         #[arg(long)]
         compact: bool,
+        #[arg(long, help = "Rebuild all textures from source and refresh the cache")]
+        no_cache: bool,
         #[arg(long)]
         picture: Option<PathBuf>,
         #[arg(long)]
@@ -241,6 +243,7 @@ pub fn run() -> Result<()> {
             settings,
             output,
             compact,
+            no_cache,
             picture,
             report,
         } => {
@@ -254,7 +257,19 @@ pub fn run() -> Result<()> {
             }
             let control = Control::default();
             let plan = scan(&game, &profile, &control)?;
-            let result = compiler::build(&plan, &profile, &output, &control, &mut progress)?;
+            let cache_mode = if no_cache {
+                compiler::CacheMode::Rebuild
+            } else {
+                compiler::CacheMode::Reuse
+            };
+            let result = compiler::build_with_cache(
+                &plan,
+                &profile,
+                &output,
+                cache_mode,
+                &control,
+                &mut progress,
+            )?;
             json(&result, report.as_deref())
         }
         Command::Validate { sources, directory } => {

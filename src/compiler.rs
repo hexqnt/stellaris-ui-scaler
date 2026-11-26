@@ -232,12 +232,36 @@ fn mod_picture(path: &Path) -> Result<Vec<u8>> {
     png(&image.into_rgba8())
 }
 
+/// Политика повторного использования результатов обработки текстур.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CacheMode {
+    #[default]
+    Reuse,
+    /// Пересчитать все текстуры и обновить кеш.
+    Rebuild,
+}
+
 /// # Errors
 /// Возвращает ошибку преобразования, проверки, публикации или отмены; предыдущая сборка сохраняется.
 pub fn build(
     plan: &BuildPlan,
     profile: &Profile,
     output: &Path,
+    control: &Control,
+    progress: &mut dyn FnMut(Progress),
+) -> Result<BuildReport> {
+    build_with_cache(plan, profile, output, CacheMode::Reuse, control, progress)
+}
+
+/// Генерирует мод с выбранной политикой кеша.
+///
+/// # Errors
+/// Возвращает ошибку преобразования, проверки, публикации или отмены; предыдущая сборка сохраняется.
+pub fn build_with_cache(
+    plan: &BuildPlan,
+    profile: &Profile,
+    output: &Path,
+    cache_mode: CacheMode,
     control: &Control,
     progress: &mut dyn FnMut(Progress),
 ) -> Result<BuildReport> {
@@ -257,7 +281,7 @@ pub fn build(
     }
     drop(texture_outputs);
     let transaction = output::OutputTransaction::prepare(output, &plan.game)?;
-    let mut cache = texture_cache::TextureCache::open(transaction.cache_root())?;
+    let mut cache = texture_cache::TextureCache::open(transaction.cache_root(), cache_mode)?;
     let mut diagnostics = plan.diagnostics.clone();
     let cache_hits = texture_pipeline::compile(
         plan,

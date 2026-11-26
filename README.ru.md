@@ -58,6 +58,8 @@ stellaris-ui-scaler
 
 Выполните `stellaris-ui-scaler --help`, чтобы увидеть список команд. Для просмотра параметров команды добавьте `--help`, например `stellaris-ui-scaler build --help`.
 
+Для генерации с нуля используйте `build --no-cache` или включите **Build from scratch** в GUI: все текстуры будут обработаны заново, а кеш обновлён.
+
 ## Благодарности
 
 Проект создан с учётом [мода Hayneken](https://steamcommunity.com/sharedfiles/filedetails/?id=3801492978).
