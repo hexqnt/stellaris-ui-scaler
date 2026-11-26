@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use eframe::egui::{self, Align, Color32, Layout, RichText, Vec2};
 
 use super::{Selection, Studio, WorkspaceTab, icons, path_picker::Target, theme};
@@ -17,14 +15,12 @@ impl Studio {
                     ui.add_enabled_ui(!busy, |ui| {
                         ui.horizontal(|ui| {
                             ui.weak("Profile");
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.profile_path)
-                                    .desired_width(180.0),
-                            );
-                            self.path_picker.button(
+                            self.path_picker.field(
                                 ui,
                                 Target::Profile,
-                                Path::new(self.profile_path.trim()),
+                                &mut self.profile_path,
+                                180.0,
+                                "",
                             );
                             if ui.add(icons::button(icons::LOAD, "Load")).clicked() {
                                 self.load_profile();
@@ -54,12 +50,13 @@ impl Studio {
                         self.scan_button(ui, ctx);
                         ui.separator();
                         ui.weak("Output");
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.output)
-                                .desired_width(output_width),
+                        self.path_picker.field(
+                            ui,
+                            Target::Output,
+                            &mut self.output,
+                            output_width,
+                            "",
                         );
-                        self.path_picker
-                            .button(ui, Target::Output, Path::new(self.output.trim()));
                         ui.separator();
                         self.scale_controls(ui);
                     });
@@ -89,16 +86,16 @@ impl Studio {
             });
     }
 
-    fn status_bar(&self, ui: &mut egui::Ui, busy: bool) {
+    fn status_bar(&self, ui: &mut egui::Ui) {
         egui::Panel::bottom("status-bar")
             .resizable(false)
             .frame(theme::frame(theme::BACKGROUND, 10))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    if busy {
+                    if let Some(job) = &self.job {
                         ui.spinner();
                         if ui.add(icons::button(icons::CLEAR, "Cancel")).clicked() {
-                            self.control.cancel();
+                            job.control.cancel();
                         }
                     } else {
                         ui.label(RichText::new(icons::READY).color(theme::MINT).size(19.0));
@@ -132,16 +129,16 @@ impl Studio {
             .id_salt("inspector-scroll")
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
-                let Some(selection) = self.rule_selection.take() else {
+                let Some(selection) = &self.rule_selection else {
                     theme::section(ui, "Texture settings");
                     ui.weak("Select an asset or folder in the browser to edit its settings.");
                     return;
                 };
                 let asset = self.selected_asset();
-                let category = match &selection {
-                    Selection::Category(category) => *category,
-                    _ => asset.map_or(crate::config::Category::Icon, |asset| asset.category),
-                };
+                let assets = self
+                    .plan
+                    .as_ref()
+                    .map_or_default(|plan| plan.textures.as_slice());
                 theme::section(
                     ui,
                     match selection {
@@ -150,8 +147,8 @@ impl Studio {
                         Selection::Category(_) => "Category settings",
                     },
                 );
-                ui.add(egui::Label::new(selection.key()).wrap());
-                match &selection {
+                ui.add(egui::Label::new(selection.key(assets)).wrap());
+                match selection {
                     Selection::Asset(_) => {
                         if let Some(asset) = asset {
                             ui.small(format!(
@@ -170,20 +167,20 @@ impl Studio {
                         ui.weak("Applies to all textures in this category.");
                     }
                 }
-                let frame_size = asset.and_then(crate::compiler::TextureAsset::frame_size);
                 ui.separator();
-                ui.add_enabled_ui(!busy, |ui| {
-                    if selection.show(
-                        ui,
-                        &mut self.profile,
-                        category,
-                        frame_size,
-                        self.preview_features.as_ref(),
-                    ) {
-                        self.invalidate_preview();
-                    }
-                });
-                self.rule_selection = Some(selection);
+                let changed = ui
+                    .add_enabled_ui(!busy, |ui| {
+                        selection.show(
+                            ui,
+                            &mut self.profile,
+                            assets,
+                            self.preview_features.as_ref(),
+                        )
+                    })
+                    .inner;
+                if changed {
+                    self.invalidate_preview();
+                }
                 ui.separator();
                 ui.collapsing("Preview filters", |ui| self.candidates_panel(ui, busy));
             });
@@ -262,9 +259,9 @@ impl Studio {
             self.tab = WorkspaceTab::Textures;
             ctx.memory_mut(|memory| memory.request_focus(egui::Id::unique("asset-search")));
         }
-        let busy = self.receiver.is_some();
+        let busy = self.job.is_some();
         self.header(root, &ctx, busy);
-        self.status_bar(root, busy);
+        self.status_bar(root);
         self.navigation(root);
         match self.tab {
             WorkspaceTab::Textures => self.texture_workspace(root, busy),
@@ -291,8 +288,8 @@ impl Studio {
         self.visual_search_window(&ctx, busy);
         self.path_dialog(&ctx);
         if self.preview_dirty
-            && self.receiver.is_none()
-            && self.selected.is_some()
+            && self.job.is_none()
+            && self.selected().is_some()
             && self.tab == WorkspaceTab::Textures
         {
             self.preview_dirty = false;

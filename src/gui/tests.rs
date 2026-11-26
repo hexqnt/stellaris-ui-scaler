@@ -69,8 +69,7 @@ fn workspace(ctx: &egui::Context) -> Studio {
             tiled: false,
         }],
     }));
-    studio.selected = Some(0);
-    studio.rule_selection = Some(Selection::Asset(path.into()));
+    studio.rule_selection = Some(Selection::Asset(0));
     studio.filter = "very_long".into();
     studio.refresh_asset_filter();
     studio.asset_tree.expand_all();
@@ -109,17 +108,17 @@ fn loading_discovery_settings_invalidates_sources_without_populating_manual_path
     );
     assert_eq!(studio.profile.auto_source_mods, profile.auto_source_mods);
     assert!(studio.plan.is_none());
-    assert!(studio.selected.is_none());
+    assert!(studio.selected().is_none());
     assert!(studio.images.is_empty());
 }
 
 fn finish_scan(studio: &mut Studio, ctx: &egui::Context) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while studio.receiver.is_some() && std::time::Instant::now() < deadline {
+    while studio.job.is_some() && std::time::Instant::now() < deadline {
         studio.poll(ctx);
         std::thread::sleep(std::time::Duration::from_millis(1));
     }
-    assert!(studio.receiver.is_none(), "{}", studio.status);
+    assert!(studio.job.is_none(), "{}", studio.status);
 }
 
 #[test]
@@ -267,7 +266,7 @@ fn clicking_a_preview_image_or_title_applies_the_algorithm_to_the_current_select
     use crate::config::TextureRule;
 
     for selection in [
-        Selection::Asset("gfx/icons/test.dds".into()),
+        Selection::Asset(0),
         Selection::Directory("gfx/icons".into()),
         Selection::Category(Category::Icon),
     ] {
@@ -339,14 +338,14 @@ fn clicking_a_preview_image_or_title_applies_the_algorithm_to_the_current_select
                 Selection::Category(_) => &studio.profile.categories,
             };
             assert_eq!(
-                rules[selection.key()],
+                rules[selection.key(studio.assets())],
                 TextureRule {
                     algorithm: Some(algorithm),
                     ..Default::default()
                 }
             );
             assert!(!studio.preview_dirty);
-            assert!(studio.receiver.is_none());
+            assert!(studio.job.is_none());
             assert_eq!(
                 studio
                     .images
@@ -372,17 +371,18 @@ fn comparison_highlight_tracks_the_current_algorithm_and_clears_for_missing_cand
         .iter()
         .map(|(_, image)| image.handle().unwrap().id())
         .collect();
+    let plan = studio.plan.clone().unwrap();
     for (algorithm, selected) in [
         (Algorithm::Bilinear, None),
         (Algorithm::CatmullRom, Some(1)),
         (Algorithm::Nearest, None),
         (Algorithm::Lanczos3, Some(0)),
     ] {
-        studio
-            .rule_selection
-            .as_ref()
-            .unwrap()
-            .set_algorithm(&mut studio.profile, algorithm);
+        studio.rule_selection.as_ref().unwrap().set_algorithm(
+            &mut studio.profile,
+            &plan.textures,
+            algorithm,
+        );
         assert_eq!(studio.current_algorithm_candidate(), selected);
         for _ in 0..2 {
             let output = ctx.run_ui(egui::RawInput::default(), |ui| studio.previews_panel(ui));
@@ -412,7 +412,7 @@ fn comparison_highlight_tracks_the_current_algorithm_and_clears_for_missing_cand
             output.drop_without_applying_deltas();
         }
         assert!(!studio.preview_dirty);
-        assert!(studio.receiver.is_none());
+        assert!(studio.job.is_none());
         assert_eq!(
             studio
                 .images
@@ -422,7 +422,7 @@ fn comparison_highlight_tracks_the_current_algorithm_and_clears_for_missing_cand
             textures
         );
     }
-    studio.selected = None;
+    studio.rule_selection = None;
     assert_eq!(studio.current_algorithm_candidate(), None);
 }
 
@@ -432,7 +432,7 @@ fn candidate_navigation_applies_the_algorithm_without_rebuilding_previews() {
         let ctx = egui::Context::default();
         let mut studio = workspace(&ctx);
         studio.mode = mode;
-        let path = studio.rule_selection.as_ref().unwrap().key().to_owned();
+        let path = studio.selected_asset().unwrap().path.clone();
         let textures: Vec<_> = studio
             .images
             .iter()
@@ -459,7 +459,7 @@ fn candidate_navigation_applies_the_algorithm_without_rebuilding_previews() {
                 Some(studio.algorithms[index])
             );
             assert!(!studio.preview_dirty);
-            assert!(studio.receiver.is_none());
+            assert!(studio.job.is_none());
             assert_eq!(
                 studio
                     .images
@@ -684,7 +684,7 @@ fn editing_the_game_path_discards_the_previous_scan_and_build() {
     assert_eq!(studio.game, "/games/Stellaris-other");
     assert!(studio.plan.is_none());
     assert!(studio.built_mod.is_none());
-    assert!(studio.selected.is_none());
+    assert!(studio.selected().is_none());
     assert!(studio.rule_selection.is_none());
     assert!(studio.images.is_empty());
     assert_eq!(studio.asset_search.matches, []);
@@ -737,8 +737,8 @@ fn preview_results_are_visible_before_completion_and_keep_candidate_indices() {
     let ctx = egui::Context::default();
     let mut studio = workspace(&ctx);
     studio.count = 2;
-    let (sender, receiver) = std::sync::mpsc::channel();
-    studio.receiver = Some(receiver);
+    let (sender, job) = super::task::Task::channel();
+    studio.job = Some(job);
     sender
         .send(Event::Preview(PreviewEvent::Source {
             image: Arc::new(image::RgbaImage::new(32, 32)),
@@ -752,7 +752,7 @@ fn preview_results_are_visible_before_completion_and_keep_candidate_indices() {
         }))
         .unwrap();
     studio.poll(&ctx);
-    assert!(studio.receiver.is_some());
+    assert!(studio.job.is_some());
     assert!(matches!(studio.images[1].1, PreviewImage::Pending));
     assert!(matches!(studio.images[2].1, PreviewImage::Ready(_)));
     assert_eq!(studio.images[2].0, "2: CatmullRom");
@@ -796,7 +796,7 @@ fn preview_results_are_visible_before_completion_and_keep_candidate_indices() {
         .send(Event::Finished(Ok(super::Completed::Preview)))
         .unwrap();
     studio.poll(&ctx);
-    assert!(studio.receiver.is_none());
+    assert!(studio.job.is_none());
     assert_eq!(studio.images[2].1.handle().unwrap().id(), ready);
 }
 
@@ -804,7 +804,6 @@ fn preview_results_are_visible_before_completion_and_keep_candidate_indices() {
 fn opening_a_search_result_reveals_hidden_assets_and_preserves_matching_filters() {
     let ctx = egui::Context::default();
     let mut studio = workspace(&ctx);
-    let path = studio.plan.as_ref().unwrap().textures[0].path.clone();
     studio.tab = WorkspaceTab::Fonts;
     studio.filter = "missing-resource".into();
     studio.category = Some(Category::Background);
@@ -814,10 +813,8 @@ fn opening_a_search_result_reveals_hidden_assets_and_preserves_matching_filters(
     assert!(studio.tab == WorkspaceTab::Textures);
     assert_eq!(studio.filter, "");
     assert_eq!(studio.category, None);
-    assert_eq!(studio.selected, Some(0));
-    assert!(
-        matches!(&studio.rule_selection, Some(Selection::Asset(selected)) if *selected == path)
-    );
+    assert_eq!(studio.selected(), Some(0));
+    assert!(matches!(&studio.rule_selection, Some(Selection::Asset(0))));
     assert_eq!(studio.asset_search.matches[0].0, 0);
 
     studio.filter = "very_long".into();

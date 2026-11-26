@@ -10,10 +10,12 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use serde::Serialize;
 
+const UI_DIRECTORIES: [&str; 3] = ["interface", "gfx", "fonts"];
+
 pub(crate) const RESOURCE_DIRECTORIES: &[&str] = &[
-    "interface",
-    "gfx",
-    "fonts",
+    UI_DIRECTORIES[0],
+    UI_DIRECTORIES[1],
+    UI_DIRECTORIES[2],
     "unchecked_defines",
     "localisation",
 ];
@@ -77,9 +79,9 @@ impl Installation {
                 if member.is_dir() || safe_relative(&key).is_err() {
                     continue;
                 }
-                if ["gfx/", "interface/", "fonts/"]
-                    .iter()
-                    .any(|p| key.starts_with(p))
+                if key
+                    .split_once('/')
+                    .is_some_and(|(directory, _)| UI_DIRECTORIES.contains(&directory))
                 {
                     resources
                         .entry(key.into_owned())
@@ -194,9 +196,7 @@ fn source_mod_root(path: &Path) -> Result<PathBuf> {
 }
 
 pub(crate) fn has_ui_resources(root: &Path) -> bool {
-    ["interface", "gfx", "fonts"]
-        .iter()
-        .any(|dir| root.join(dir).is_dir())
+    UI_DIRECTORIES.iter().any(|dir| root.join(dir).is_dir())
 }
 
 fn index_directory(root: &Path, resources: &mut BTreeMap<String, Source>) -> Result<()> {
@@ -293,22 +293,35 @@ pub fn files(root: &Path) -> Result<Vec<PathBuf>> {
     Ok(result)
 }
 
-pub(crate) fn is_texture_key(key: &str) -> bool {
-    [
+#[derive(Clone, Copy)]
+pub(crate) enum TextureRole {
+    Color,
+    Mask,
+}
+
+pub(crate) fn texture_reference<'a>(
+    node: &crate::pdx::Node<'a>,
+) -> Option<(Cow<'a, str>, TextureRole)> {
+    let key = node.key?;
+    let role = if ["animationmaskfile", "masking_texture"]
+        .iter()
+        .any(|name| key.eq_ignore_ascii_case(name))
+    {
+        TextureRole::Mask
+    } else if [
         "texturefile",
         "texturefile1",
         "texturefile2",
-        "animationmaskfile",
         "animationtexturefile",
-        "masking_texture",
     ]
     .iter()
-    .any(|candidate| key.eq_ignore_ascii_case(candidate))
-}
-
-pub(crate) fn texture_reference<'a>(node: &crate::pdx::Node<'a>) -> Option<Cow<'a, str>> {
-    node.key.filter(|key| is_texture_key(key))?;
-    node.atom().map(normalize_reference)
+    .any(|name| key.eq_ignore_ascii_case(name))
+    {
+        TextureRole::Color
+    } else {
+        return None;
+    };
+    Some((normalize_reference(node.atom()?), role))
 }
 
 #[cfg(test)]

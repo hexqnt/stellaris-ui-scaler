@@ -285,7 +285,7 @@ impl Studio {
                             .size(42.0)
                             .color(theme::MUTED),
                     );
-                    ui.heading(if self.receiver.is_some() {
+                    ui.heading(if self.job.is_some() {
                         "Preparing preview…"
                     } else {
                         "Your texture workspace"

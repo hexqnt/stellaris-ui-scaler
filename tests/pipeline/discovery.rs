@@ -221,23 +221,22 @@ fn saved_mod_snapshot_is_checked_before_scanning_and_building() {
     let mut loaded = Profile::load(&profile_path).unwrap();
     assert_eq!(loaded.auto_source_mods, profile.auto_source_mods);
     assert_eq!(loaded.source_mods, Vec::<PathBuf>::new());
-    let control = Control::default();
-    let original = compiler::plan_with_profile(&game, &loaded, &control, &mut |_| {}).unwrap();
+    let original = scan_game_with_profile(&game, &loaded).unwrap();
     assert_eq!(original.game.source_mods, [first.canonicalize().unwrap()]);
     let output = fixture.0.join("compiled");
-    compiler::build(&original, &loaded, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&original, &loaded, &output).unwrap();
     let before = fs::read(output.join(compiler::manifest_name())).unwrap();
     let manifest: compiler::Manifest = serde_json::from_slice(&before).unwrap();
     assert_eq!(manifest.source_mods, original.game.source_mods);
     assert_eq!(manifest.profile.source_mods, Vec::<PathBuf>::new());
     export(&user_data, &["mod/second.mod"]);
-    let error = compiler::plan_with_profile(&game, &loaded, &control, &mut |_| {}).unwrap_err();
+    let error = scan_game_with_profile(&game, &loaded).unwrap_err();
     let mismatch = error
         .downcast_ref::<source_mods::ModListMismatch>()
         .unwrap();
     assert_eq!(mismatch.saved, [first.canonicalize().unwrap()]);
     assert_eq!(mismatch.current, [second.canonicalize().unwrap()]);
-    let error = compiler::build(&original, &loaded, &output, &control, &mut |_| {}).unwrap_err();
+    let error = build_mod(&original, &loaded, &output).unwrap_err();
     assert!(
         error
             .downcast_ref::<source_mods::ModListMismatch>()
@@ -253,10 +252,10 @@ fn saved_mod_snapshot_is_checked_before_scanning_and_building() {
         [first.canonicalize().unwrap()]
     );
     source_mods::refresh(&game, loaded.auto_source_mods.as_mut().unwrap()).unwrap();
-    let refreshed = compiler::plan_with_profile(&game, &loaded, &control, &mut |_| {}).unwrap();
+    let refreshed = scan_game_with_profile(&game, &loaded).unwrap();
     assert_eq!(refreshed.game.source_mods, [second.canonicalize().unwrap()]);
     assert!(refreshed.sources["interface/example.gui"].contains("x = 23"));
-    compiler::build(&refreshed, &loaded, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&refreshed, &loaded, &output).unwrap();
     loaded.save(&profile_path).unwrap();
     assert_eq!(
         Profile::load(&profile_path)
@@ -283,12 +282,9 @@ fn automatic_settings_roundtrip_and_disabling_discovery_ignores_the_export() {
     assert_eq!(loaded.auto_source_mods, profile.auto_source_mods);
     profile.auto_source_mods.as_mut().unwrap().user_data_dir = Some(user_data.clone());
     write(&user_data, "dlc_load.json", "broken export");
-    assert!(
-        compiler::plan_with_profile(&game, &profile, &Control::default(), &mut |_| {}).is_err()
-    );
+    assert!(scan_game_with_profile(&game, &profile).is_err());
     profile.auto_source_mods = None;
-    let plan =
-        compiler::plan_with_profile(&game, &profile, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game_with_profile(&game, &profile).unwrap();
     assert_eq!(plan.game.source_mods, Vec::<PathBuf>::new());
     assert_eq!(
         plan.sources["interface/example.gui"],
@@ -388,8 +384,7 @@ fn checkbox_choices_persist_and_filter_sources_before_overlaying_files() {
         }),
         ..Profile::default()
     };
-    let control = Control::default();
-    let both = compiler::plan_with_profile(&game, &profile, &control, &mut |_| {}).unwrap();
+    let both = scan_game_with_profile(&game, &profile).unwrap();
     assert!(both.sources["interface/example.gui"].contains("x = 23"));
     assert!(both.sources.contains_key("interface/first_only.gui"));
     assert!(both.sources.contains_key("interface/last_only.gui"));
@@ -399,7 +394,7 @@ fn checkbox_choices_persist_and_filter_sources_before_overlaying_files() {
     let mut restored = Profile::load(&path).unwrap();
     assert_eq!(restored.disabled_source_mods, profile.disabled_source_mods);
     assert_eq!(restored.auto_source_mods, profile.auto_source_mods);
-    let selected = compiler::plan_with_profile(&game, &restored, &control, &mut |_| {}).unwrap();
+    let selected = scan_game_with_profile(&game, &restored).unwrap();
     assert_eq!(
         selected.game.source_mods.as_slice(),
         std::slice::from_ref(&first)
@@ -407,17 +402,10 @@ fn checkbox_choices_persist_and_filter_sources_before_overlaying_files() {
     assert!(selected.sources["interface/example.gui"].contains("x = 11"));
     assert!(selected.sources.contains_key("interface/first_only.gui"));
     assert!(!selected.sources.contains_key("interface/last_only.gui"));
-    let error = compiler::build(
-        &both,
-        &restored,
-        &fixture.0.join("rejected"),
-        &control,
-        &mut |_| {},
-    )
-    .unwrap_err();
+    let error = build_mod(&both, &restored, &fixture.0.join("rejected")).unwrap_err();
     assert!(error.to_string().contains("scan assets again"));
     restored.disabled_source_mods.insert(first);
-    let empty = compiler::plan_with_profile(&game, &restored, &control, &mut |_| {}).unwrap();
+    let empty = scan_game_with_profile(&game, &restored).unwrap();
     assert_eq!(empty.game.source_mods, Vec::<PathBuf>::new());
     assert_eq!(
         empty.sources["interface/example.gui"],
@@ -516,9 +504,9 @@ fn scan_disables_new_mods_and_refreshes_the_snapshot_with_preserved_choices() {
     profile.disabled_source_mods = updated.disabled_source_mods;
     profile.source_mods.clear();
     let output = fixture.0.join("compiled");
-    compiler::build(&updated.plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&updated.plan, &profile, &output).unwrap();
     export(&user_data, &["mod/second.mod", "mod/first.mod"]);
-    assert!(compiler::build(&updated.plan, &profile, &output, &control, &mut |_| {}).is_err());
+    assert!(build_mod(&updated.plan, &profile, &output).is_err());
     let reordered = compiler::scan_enabled_mods(&game, &profile, &control, &mut |_| {}).unwrap();
     assert_eq!(reordered.settings.source_mods, [second, first]);
     assert!(reordered.changes.is_some());

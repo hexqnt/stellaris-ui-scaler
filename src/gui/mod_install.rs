@@ -1,12 +1,14 @@
 use std::{
     fs,
-    io::Write,
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, ensure};
 
-use crate::{atomic_file::AtomicFile, paths};
+use crate::{
+    atomic_file::{AtomicFile, Durability},
+    paths,
+};
 
 pub(super) fn install(output: &Path, mods_directory: &Path) -> Result<PathBuf> {
     ensure!(
@@ -40,13 +42,10 @@ pub(super) fn install(output: &Path, mods_directory: &Path) -> Result<PathBuf> {
             destination.display()
         );
     }
-    AtomicFile::prepare(&destination, |file| {
-        file.write_all(descriptor.as_bytes())?;
-        file.sync_all()
-    })
-    .context("Cannot prepare launcher descriptor")?
-    .publish()
-    .context("Cannot install launcher descriptor")?;
+    AtomicFile::prepare(&destination, descriptor.as_bytes(), Durability::Synced)
+        .context("Cannot prepare launcher descriptor")?
+        .publish()
+        .context("Cannot install launcher descriptor")?;
     Ok(destination)
 }
 

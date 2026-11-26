@@ -183,7 +183,7 @@ fn transform_edits(
             }
             let family = group.replacement_family(rule);
             for (size, languages) in by_size {
-                edits.insert(root, &format!("\n\tbitmapfont_override = {{ name = \"{name}\" ttf_font = \"{family}\" ttf_size = \"{size}\" languages = {{ {} }} }}\n", languages.join(" ")));
+                edits.insert_text(root, format!("\n\tbitmapfont_override = {{ name = \"{name}\" ttf_font = \"{family}\" ttf_size = \"{size}\" languages = {{ {} }} }}\n", languages.join(" ")));
             }
         }
     }

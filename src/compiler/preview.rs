@@ -5,10 +5,10 @@ use std::{
 
 use rayon::prelude::*;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
 
 use crate::{
-    config::{Profile, Scale},
+    config::{Algorithm, ImageFeatures, Profile},
     parallelism::CpuBudget,
     textures,
 };
@@ -19,7 +19,7 @@ use super::{BuildPlan, Control, TextureAsset};
 pub enum PreviewEvent {
     Source {
         image: Arc<image::RgbaImage>,
-        features: Option<crate::config::ImageFeatures>,
+        features: Option<ImageFeatures>,
     },
     Candidate {
         index: usize,
@@ -29,7 +29,7 @@ pub enum PreviewEvent {
 
 pub struct TexturePreview {
     pub images: Vec<(String, image::RgbaImage)>,
-    pub features: Option<crate::config::ImageFeatures>,
+    pub features: Option<ImageFeatures>,
 }
 
 /// Сохраняет нейросетевую сессию между запросами предпросмотра.
@@ -48,7 +48,7 @@ impl PreviewSession {
         plan: &BuildPlan,
         profile: &Profile,
         asset: &TextureAsset,
-        algorithms: &[crate::config::Algorithm],
+        algorithms: &[Algorithm],
         control: &Control,
         emit: &(impl Fn(PreviewEvent) + Sync),
     ) -> Result<()> {
@@ -61,7 +61,7 @@ impl PreviewSession {
                 .iter()
                 .any(|&algorithm| policy.with_algorithm(algorithm).needs_pixel_analysis());
         let features = needs_features
-            .then(|| crate::config::ImageFeatures::analyze(&source, asset.frames))
+            .then(|| ImageFeatures::analyze(&source, asset.frames))
             .transpose()?;
         control.check()?;
         emit(PreviewEvent::Source {
@@ -87,12 +87,13 @@ impl PreviewSession {
                 if control.check().is_err() {
                     return;
                 }
-                let options = policy
-                    .with_algorithm(algorithm)
-                    .processing(features.as_ref())
-                    .options;
-                let image =
-                    render_texture(asset, policy.scale, &source, &options, processor, control);
+                let image = asset.render(
+                    &source,
+                    policy.with_algorithm(algorithm),
+                    features.as_ref(),
+                    processor,
+                    control,
+                );
                 if control.check().is_ok() {
                     emit(PreviewEvent::Candidate { index, image });
                 }
@@ -112,34 +113,13 @@ pub fn preview(
     let source = textures::decode(&plan.game.read(&asset.path)?)?;
     let policy = asset.policy(profile);
     let features = policy.analyze(&source, asset.frames)?;
-    render_texture(
-        asset,
-        policy.scale,
+    asset.render(
         &source,
-        &policy.processing(features.as_ref()).options,
+        policy,
+        features.as_ref(),
         &textures::Processor::default(),
         &Control::default(),
     )
-}
-
-pub(super) fn render_texture(
-    asset: &TextureAsset,
-    scale: Scale,
-    source: &image::RgbaImage,
-    options: &crate::config::TextureOptions,
-    processor: &textures::Processor,
-    control: &Control,
-) -> Result<image::RgbaImage> {
-    ensure!(
-        source.dimensions() == (asset.width, asset.height),
-        "Source dimensions changed since scan: {}",
-        asset.path
-    );
-    if asset.tiled {
-        processor.periodic(source, scale, asset.frames, options, &|| control.check())
-    } else {
-        processor.process(source, scale, asset.frames, options, &|| control.check())
-    }
 }
 
 /// # Errors
@@ -148,7 +128,7 @@ pub fn preview_candidates(
     plan: &BuildPlan,
     profile: &Profile,
     asset: &TextureAsset,
-    algorithms: &[crate::config::Algorithm],
+    algorithms: &[Algorithm],
     control: &Control,
 ) -> Result<Vec<(String, image::RgbaImage)>> {
     Ok(preview_candidates_with_analysis(plan, profile, asset, algorithms, control)?.images)
@@ -160,7 +140,7 @@ pub fn preview_candidates_with_analysis(
     plan: &BuildPlan,
     profile: &Profile,
     asset: &TextureAsset,
-    algorithms: &[crate::config::Algorithm],
+    algorithms: &[Algorithm],
     control: &Control,
 ) -> Result<TexturePreview> {
     let (sender, receiver) = mpsc::channel();
@@ -168,31 +148,23 @@ pub fn preview_candidates_with_analysis(
         let _ = sender.send(event);
     })?;
     drop(sender);
-    let mut original = None;
-    let mut features = None;
+    let PreviewEvent::Source { image, features } =
+        receiver.recv().context("Preview source was not emitted")?
+    else {
+        anyhow::bail!("Preview source was not emitted");
+    };
+    let original =
+        Arc::try_unwrap(image).map_err(|_| anyhow::anyhow!("Preview source is still in use"))?;
     let mut candidates = Vec::with_capacity(algorithms.len());
     for event in receiver {
-        match event {
-            PreviewEvent::Source {
-                image,
-                features: analysis,
-            } => {
-                original = Some(
-                    Arc::try_unwrap(image)
-                        .map_err(|_| anyhow::anyhow!("Preview source is still in use"))?,
-                );
-                features = analysis;
-            }
-            PreviewEvent::Candidate { index, image } => candidates.push((index, image)),
+        if let PreviewEvent::Candidate { index, image } = event {
+            candidates.push((index, image));
         }
     }
     // События приходят из рабочих потоков; порядок восстанавливается по индексу.
     candidates.sort_unstable_by_key(|(index, _)| *index);
     let mut images = Vec::with_capacity(algorithms.len() + 1);
-    images.push((
-        "Original".into(),
-        original.context("Preview source was not emitted")?,
-    ));
+    images.push(("Original".into(), original));
     for (index, image) in candidates {
         images.push((
             format!("{}: {}", index + 1, algorithms[index].name()),

@@ -18,6 +18,7 @@ mod preview;
 mod project;
 mod settings;
 mod source_mods;
+mod task;
 mod texture_rules;
 mod theme;
 mod visual_search;
@@ -25,7 +26,6 @@ mod visual_search;
 use std::{
     path::PathBuf,
     sync::{Arc, mpsc},
-    time::Duration,
 };
 
 use anyhow::{Result, anyhow};
@@ -103,7 +103,6 @@ struct Studio {
     path_picker: path_picker::Picker<path_picker::Target>,
     profile: Profile,
     plan: Option<Arc<BuildPlan>>,
-    selected: Option<usize>,
     filter: String,
     category: Option<Category>,
     asset_search: AssetSearch,
@@ -114,8 +113,7 @@ struct Studio {
     preview_features: Option<crate::config::ImageFeatures>,
     images: Vec<(String, PreviewImage)>,
     preview_session: Arc<compiler::PreviewSession>,
-    receiver: Option<mpsc::Receiver<Event>>,
-    control: Control,
+    job: Option<task::Task<Event>>,
     status: String,
     zoom: f32,
     preview_offset: Vec2,
@@ -150,7 +148,6 @@ impl Studio {
             path_picker: path_picker::Picker::default(),
             profile,
             plan: None,
-            selected: None,
             filter: String::new(),
             category: None,
             asset_search: AssetSearch::default(),
@@ -161,8 +158,7 @@ impl Studio {
             preview_features: None,
             images: Vec::new(),
             preview_session: Arc::default(),
-            receiver: None,
-            control: Control::default(),
+            job: None,
             status: "Select an installation and scan its assets".into(),
             zoom: 1.0,
             preview_offset: Vec2::ZERO,
@@ -185,24 +181,17 @@ impl Studio {
         ctx: &egui::Context,
         work: impl FnOnce(Control, &mpsc::Sender<Event>) -> Result<Completed> + Send + 'static,
     ) {
-        let (sender, receiver) = mpsc::channel();
-        self.receiver = Some(receiver);
-        self.control = Control::default();
-        let control = self.control.clone();
-        let ctx = ctx.clone();
-        std::thread::spawn(move || {
-            let result = work(control, &sender).map_err(|error| format!("{error:#}"));
-            let _ = sender.send(Event::Finished(result));
-            ctx.request_repaint();
-        });
+        self.job = Some(task::Task::spawn(ctx, move |control, sender| {
+            Event::Finished(work(control, sender).map_err(|error| format!("{error:#}")))
+        }));
     }
     fn poll(&mut self, ctx: &egui::Context) {
-        while let Some(receiver) = &self.receiver {
-            let event = match receiver.try_recv() {
+        while let Some(job) = &self.job {
+            let event = match job.try_recv(ctx) {
                 Ok(event) => event,
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    self.receiver = None;
+                    self.job = None;
                     self.status = "Worker stopped unexpectedly".into();
                     break;
                 }
@@ -210,10 +199,10 @@ impl Studio {
             match event {
                 Event::Preview(event) => self.accept_preview(ctx, event),
                 Event::Progress(p) => {
-                    self.status = format!("{}: {}/{}", p.stage, p.completed, p.total);
+                    self.status = p.to_string();
                 }
                 Event::Finished(result) => {
-                    self.receiver = None;
+                    self.job = None;
                     if let Err(error) = &result {
                         for (_, image) in &mut self.images {
                             if matches!(image, PreviewImage::Pending) {
@@ -242,12 +231,22 @@ impl Studio {
                 }
             }
         }
-        if self.receiver.is_some() {
-            ctx.request_repaint_after(Duration::from_millis(100));
+    }
+    const fn selected(&self) -> Option<usize> {
+        match self.rule_selection {
+            Some(Selection::Asset(index)) => Some(index),
+            _ => None,
         }
     }
+
+    fn assets(&self) -> &[TextureAsset] {
+        self.plan
+            .as_ref()
+            .map_or_default(|plan| plan.textures.as_slice())
+    }
+
     fn selected_asset(&self) -> Option<&TextureAsset> {
-        self.plan.as_ref()?.textures.get(self.selected?)
+        self.assets().get(self.selected()?)
     }
     fn current_algorithm_candidate(&self) -> Option<usize> {
         let algorithm = self
@@ -269,7 +268,7 @@ impl Studio {
         self.preview_dirty = true;
     }
     fn preview(&mut self, ctx: &egui::Context) {
-        let (Some(plan), Some(index)) = (self.plan.clone(), self.selected) else {
+        let (Some(plan), Some(index)) = (self.plan.clone(), self.selected()) else {
             return;
         };
         let profile = self.profile.clone();
@@ -311,11 +310,6 @@ impl Studio {
     }
 }
 
-impl Drop for Studio {
-    fn drop(&mut self) {
-        self.control.cancel();
-    }
-}
 /// # Errors
 /// Возвращает ошибку создания окна или графического контекста.
 pub fn run(game: Option<PathBuf>) -> Result<()> {

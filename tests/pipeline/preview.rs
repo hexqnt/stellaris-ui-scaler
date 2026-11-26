@@ -26,7 +26,7 @@ fn mixed_atlas_preview_and_cache_share_the_fallback() {
     let source = test_images::mixed_atlas([0, 1, 2]);
     source.save(root.join("gfx/test.png")).unwrap();
     let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     let profile = Profile {
         auto_algorithm: true,
@@ -78,8 +78,7 @@ fn unstructured_detail_limits_sharpening_and_preserves_explicit_rules() {
     );
     let source = test_images::unstructured();
     source.save(root.join("gfx/test.png")).unwrap();
-    let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     let mut profile = Profile {
         auto_algorithm: true,
@@ -125,7 +124,7 @@ fn candidate_sharpening_analyzes_pixels_even_when_the_current_filter_is_fixed() 
     let source = test_images::flat_graphic();
     source.save(root.join("gfx/test.png")).unwrap();
     let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     let mut profile = Profile {
         auto_sharpening: true,
@@ -170,7 +169,7 @@ fn pixel_auto_preserves_preview_build_and_cache_policy() {
     let source = test_images::flat_graphic();
     source.save(root.join("gfx/test.png")).unwrap();
     let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     let mut profile = Profile {
         auto_algorithm: true,
@@ -252,7 +251,7 @@ fn pixel_auto_preserves_preview_build_and_cache_policy() {
 fn preview_entry_points_reject_invalid_profiles() {
     let fixture = fixture();
     let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let mut profile = Profile::default();
     profile.textures.sharpening = f32::NAN;
     let asset = &plan.textures[0];
@@ -274,9 +273,9 @@ fn gui_candidates_and_build_share_texture_transformation() {
             ..Default::default()
         },
     );
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let candidate = compiler::preview_candidates(
         &plan,
         &profile,
@@ -315,7 +314,7 @@ fn auto_algorithm_matches_preview_build_and_cache() {
         scale: Scale::try_from(1.5).unwrap(),
         ..Profile::default()
     };
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     assert_eq!(asset.category, Category::SpriteSheet);
     assert_eq!(asset.options(&profile).algorithm, Algorithm::CatmullRom);
@@ -356,7 +355,7 @@ fn inherited_texture_scale_matches_preview_build_and_cache() {
             ..Default::default()
         },
     );
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
     let preview = compiler::preview(&plan, &profile, &plan.textures[0]).unwrap();
     assert_eq!(preview.dimensions(), (12, 6));
@@ -385,7 +384,7 @@ fn streaming_preview_emits_source_first_and_runs_candidates_concurrently() {
 
     let fixture = fixture();
     let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let algorithms = [Algorithm::Lanczos3, Algorithm::CatmullRom];
     let profile = Profile::default();
     let source_seen = AtomicBool::new(false);
@@ -443,7 +442,7 @@ fn streaming_preview_cancellation_after_source_stops_candidates() {
     use compiler::{PreviewEvent, PreviewSession};
     let fixture = fixture();
     let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let session = PreviewSession::default();
     assert!(
         session

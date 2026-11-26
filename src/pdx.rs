@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::Range};
+use std::{borrow::Cow, iter::Peekable, ops::Range};
 
 use anyhow::{Result, bail, ensure};
 
@@ -95,83 +95,32 @@ impl<'a> Document<'a> {
     /// # Errors
     /// Возвращает ошибку с позицией незакрытой конструкции или оператора без ключа либо значения.
     pub fn parse(source: &'a str) -> Result<Self> {
-        let bytes = source.as_bytes();
-        let mut tokens = Vec::new();
-        let mut i = usize::from(source.starts_with('\u{feff}')) * 3;
-        while let Some(&c) = bytes.get(i) {
-            if c.is_ascii_whitespace() {
-                i += 1;
-                continue;
+        let mut cursor = usize::from(source.starts_with('\u{feff}')) * 3;
+        let mut tokens = std::iter::from_fn(|| {
+            let token = lex(source, &mut cursor);
+            if token.is_err() {
+                cursor = source.len();
             }
-            if c == b'#' {
-                while bytes.get(i).is_some_and(|c| *c != b'\n') {
-                    i += 1;
+            token.transpose()
+        })
+        .peekable();
+        match parse_nodes(&mut tokens, 0) {
+            Ok((nodes, _)) => Ok(Self { source, nodes }),
+            Err(error) => {
+                // Как при отдельном проходе лексера, ошибка токена важнее ошибки структуры.
+                for token in tokens {
+                    token?;
                 }
-                continue;
+                Err(error)
             }
-            let start = i;
-            i += 1;
-            let kind = match c {
-                b'"' => {
-                    let mut closed = false;
-                    while let Some(&c) = bytes.get(i) {
-                        i += 1;
-                        if c == b'\\' && matches!(bytes.get(i), Some(b'"' | b'\\')) {
-                            i += 1;
-                        } else if c == b'"' {
-                            closed = true;
-                            break;
-                        }
-                    }
-                    ensure!(closed, "Unterminated string at byte {start}");
-                    TokenKind::Atom
-                }
-                b'@' if bytes.get(i) == Some(&b'[') => {
-                    i += 1;
-                    while bytes.get(i).is_some_and(|c| *c != b']') {
-                        i += 1;
-                    }
-                    ensure!(
-                        bytes.get(i) == Some(&b']'),
-                        "Unterminated expression at byte {start}"
-                    );
-                    i += 1;
-                    TokenKind::Atom
-                }
-                b'{' => TokenKind::Open,
-                b'}' => TokenKind::Close,
-                b'=' => TokenKind::Operator,
-                b'<' | b'>' | b'!' => {
-                    if bytes.get(i) == Some(&b'=') {
-                        i += 1;
-                    }
-                    TokenKind::Operator
-                }
-                _ => {
-                    while bytes
-                        .get(i)
-                        .is_some_and(|c| !c.is_ascii_whitespace() && !b"{}=#<>!".contains(c))
-                    {
-                        i += 1;
-                    }
-                    TokenKind::Atom
-                }
-            };
-            tokens.push(Token {
-                kind,
-                text: &source[start..i],
-                start,
-            });
         }
-        let mut cursor = 0;
-        let nodes = parse_nodes(&tokens, &mut cursor, 0)?;
-        Ok(Self { source, nodes })
     }
 
     pub fn walk<'doc>(&'doc self, mut visit: impl FnMut(&'doc Node<'a>)) {
-        for node in &self.nodes {
-            node.walk(&mut visit);
-        }
+        self.try_walk(|node| {
+            visit(node);
+            Ok::<_, !>(())
+        });
     }
 
     /// Обходит узлы в глубину и останавливается при первой ошибке обработчика.
@@ -188,7 +137,81 @@ impl<'a> Document<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+fn lex<'a>(source: &'a str, i: &mut usize) -> Result<Option<Token<'a>>> {
+    let bytes = source.as_bytes();
+    let (start, first) = loop {
+        let Some(&first) = bytes.get(*i) else {
+            return Ok(None);
+        };
+        let start = *i;
+        *i += 1;
+        if first == b'#' {
+            while bytes.get(*i).is_some_and(|c| *c != b'\n') {
+                *i += 1;
+            }
+        } else if !first.is_ascii_whitespace() {
+            break (start, first);
+        }
+    };
+    let kind = match first {
+        b'"' => {
+            let len = quoted_end(&bytes[*i..])
+                .ok_or_else(|| anyhow::anyhow!("Unterminated string at byte {start}"))?;
+            *i += len + 1;
+            TokenKind::Atom
+        }
+        b'@' if bytes.get(*i) == Some(&b'[') => {
+            *i += 1;
+            while bytes.get(*i).is_some_and(|c| *c != b']') {
+                *i += 1;
+            }
+            ensure!(
+                bytes.get(*i) == Some(&b']'),
+                "Unterminated expression at byte {start}"
+            );
+            *i += 1;
+            TokenKind::Atom
+        }
+        b'{' => TokenKind::Open,
+        b'}' => TokenKind::Close,
+        b'=' => TokenKind::Operator,
+        b'<' | b'>' | b'!' => {
+            *i += usize::from(bytes.get(*i) == Some(&b'='));
+            TokenKind::Operator
+        }
+        _ => {
+            while bytes
+                .get(*i)
+                .is_some_and(|c| !c.is_ascii_whitespace() && !b"{}=#<>!".contains(c))
+            {
+                *i += 1;
+            }
+            TokenKind::Atom
+        }
+    };
+    Ok(Some(Token {
+        kind,
+        text: &source[start..*i],
+        start,
+    }))
+}
+
+/// Ищет закрывающую кавычку в срезе после открывающей.
+pub(crate) fn quoted_end(bytes: &[u8]) -> Option<usize> {
+    let mut end = 0;
+    while let Some(&byte) = bytes.get(end) {
+        if byte == b'"' {
+            return Some(end);
+        }
+        end += if byte == b'\\' && matches!(bytes.get(end + 1), Some(b'\\' | b'"')) {
+            2
+        } else {
+            1
+        };
+    }
+    None
+}
+
 struct Token<'a> {
     kind: TokenKind,
     text: &'a str,
@@ -217,6 +240,10 @@ impl Edits {
     }
 
     pub fn insert(&mut self, node: &Node<'_>, text: &str) {
+        self.insert_text(node, text);
+    }
+
+    pub(crate) fn insert_text(&mut self, node: &Node<'_>, text: impl Into<String>) {
         if let Value::Block { end, .. } = node.value {
             self.replace(end..end, text);
         }
@@ -278,63 +305,50 @@ pub(crate) fn unescape(text: &str) -> Cow<'_, str> {
 }
 
 fn parse_nodes<'a>(
-    tokens: &[Token<'a>],
-    cursor: &mut usize,
+    tokens: &mut Peekable<impl Iterator<Item = Result<Token<'a>>>>,
     depth: usize,
-) -> Result<Vec<Node<'a>>> {
+) -> Result<(Vec<Node<'a>>, usize)> {
     ensure!(depth <= 256, "Maximum syntax nesting depth exceeded");
     let mut nodes = Vec::new();
-    while let Some(first) = tokens.get(*cursor) {
-        if first.kind == TokenKind::Close {
-            ensure!(
-                depth > 0,
-                "Unexpected closing brace at byte {}",
-                first.start
-            );
-            return Ok(nodes);
-        }
+    while let Some(first) = tokens.next().transpose()? {
         let start = first.start;
+        if first.kind == TokenKind::Close {
+            ensure!(depth > 0, "Unexpected closing brace at byte {start}");
+            return Ok((nodes, start));
+        }
         ensure!(
             first.kind != TokenKind::Operator,
             "Unexpected operator at byte {start}"
         );
         let mut key = None;
-        if first.kind == TokenKind::Atom
-            && let Some(next) = tokens.get(*cursor + 1)
+        let token = if first.kind == TokenKind::Atom
+            && let Some(Ok(next)) = tokens.peek()
             && matches!(next.kind, TokenKind::Operator | TokenKind::Open)
         {
             key = Some(first.text);
-            *cursor += if next.kind == TokenKind::Open { 1 } else { 2 };
-        }
-        let token = tokens
-            .get(*cursor)
-            .ok_or_else(|| anyhow::anyhow!("Missing value at byte {start}"))?;
-        ensure!(
-            matches!(token.kind, TokenKind::Atom | TokenKind::Open),
-            "Missing value at byte {start}"
-        );
-        *cursor += 1;
-        let (value, end) = if token.kind == TokenKind::Open {
-            let children = parse_nodes(tokens, cursor, depth + 1)?;
-            let Some(close) = tokens.get(*cursor) else {
-                bail!("Unclosed block at byte {start}");
-            };
-            *cursor += 1;
-            (
-                Value::Block {
-                    children,
-                    end: close.start,
-                },
-                close.end(),
-            )
+            if next.kind == TokenKind::Operator {
+                tokens.next();
+            }
+            tokens
+                .next()
+                .transpose()?
+                .ok_or_else(|| anyhow::anyhow!("Missing value at byte {start}"))?
         } else {
-            (
+            first
+        };
+        let (value, end) = match token.kind {
+            TokenKind::Open => {
+                let (children, end) = parse_nodes(tokens, depth + 1)?;
+                (Value::Block { children, end }, end + 1)
+            }
+            TokenKind::Atom => (
                 Value::Atom {
                     text: token.text,
                     span: token.start..token.end(),
                 },
                 token.end(),
-            )
+            ),
+            TokenKind::Close | TokenKind::Operator => bail!("Missing value at byte {start}"),
         };
         nodes.push(Node {
             key,
@@ -343,12 +357,22 @@ fn parse_nodes<'a>(
         });
     }
     ensure!(depth == 0, "Unclosed block at end of file");
-    Ok(nodes)
+    Ok((nodes, 0))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn trailing_lexical_errors_keep_their_priority() {
+        for (source, expected) in [
+            ("} name = \"broken", "Unterminated string at byte 9"),
+            ("= x @[(x)", "Unterminated expression at byte 4"),
+        ] {
+            assert_eq!(Document::parse(source).unwrap_err().to_string(), expected);
+        }
+    }
 
     #[test]
     fn quoted_text_decodes_only_supported_escapes() {

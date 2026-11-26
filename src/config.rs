@@ -5,12 +5,13 @@ mod types;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    io::Write,
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
+
+use crate::atomic_file::{AtomicFile, Durability};
 
 use texture_policy::AutoPolicy;
 
@@ -21,6 +22,7 @@ pub use types::{
     Algorithm, AutoSourceMods, Category, ColorSpace, FontMode, FontRule, FontSize, OutlinerOptions,
     Scale, TextureOptions, TextureRule,
 };
+pub(crate) use types::{SHARPENING, SHARPENING_RADIUS};
 
 pub(crate) const OUTLINER_REFERENCE_SCALE: f64 = 1.3846;
 
@@ -78,12 +80,9 @@ impl Profile {
     pub fn save(&self, path: &Path) -> Result<()> {
         self.check()?;
         let text = toml::to_string_pretty(self)?;
-        crate::atomic_file::AtomicFile::prepare(path, |file| {
-            file.write_all(text.as_bytes())?;
-            file.sync_all()
-        })
-        .and_then(crate::atomic_file::AtomicFile::publish)
-        .with_context(|| format!("Cannot save profile: {}", path.display()))?;
+        AtomicFile::prepare(path, text.as_bytes(), Durability::Synced)
+            .and_then(AtomicFile::publish)
+            .with_context(|| format!("Cannot save profile: {}", path.display()))?;
         Ok(())
     }
     /// # Errors
@@ -127,12 +126,11 @@ impl Profile {
             );
         }
         ensure!(
-            self.textures.sharpening.is_finite() && (0.0..=2.0).contains(&self.textures.sharpening),
+            SHARPENING.contains(&self.textures.sharpening),
             "Sharpening must be between 0 and 2"
         );
         ensure!(
-            self.textures.sharpening_radius.is_finite()
-                && (0.1..=5.0).contains(&self.textures.sharpening_radius),
+            SHARPENING_RADIUS.contains(&self.textures.sharpening_radius),
             "Sharpening radius must be between 0.1 and 5"
         );
         ensure!(

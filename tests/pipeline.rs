@@ -53,6 +53,22 @@ use stellaris_ui_scaler::{
 
 use temp::Temp;
 
+fn scan_game(game: &Path) -> anyhow::Result<compiler::BuildPlan> {
+    compiler::plan(game, &Control::default(), &mut |_| {})
+}
+
+fn scan_game_with_profile(game: &Path, profile: &Profile) -> anyhow::Result<compiler::BuildPlan> {
+    compiler::plan_with_profile(game, profile, &Control::default(), &mut |_| {})
+}
+
+fn build_mod(
+    plan: &compiler::BuildPlan,
+    profile: &Profile,
+    output: &Path,
+) -> anyhow::Result<compiler::BuildReport> {
+    compiler::build(plan, profile, output, &Control::default(), &mut |_| {})
+}
+
 fn write(root: &Path, path: &str, text: &str) {
     let path = root.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();

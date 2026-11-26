@@ -8,7 +8,7 @@ use image::{GenericImageView, RgbaImage, SubImage, imageops};
 use ort::{environment::Environment, session::Session, value::TensorRef};
 use sha2::{Digest, Sha256};
 
-use super::check_dimensions;
+use super::{Boundary, check_dimensions};
 
 pub(super) const MODEL_SHA256: [u8; 32] = [
     0x8f, 0xb9, 0x23, 0xd0, 0xb1, 0xad, 0x09, 0xd4, 0x95, 0xc7, 0xb9, 0x7c, 0x60, 0x46, 0x27, 0x7c,
@@ -18,12 +18,6 @@ pub(super) const CACHE_ID: &str = "realplksr-2x-mssim-ort1.32-fp32-cpu-core192-h
 const CORE: u32 = 192;
 const HALO: u32 = 32;
 static ENVIRONMENT: Mutex<Option<Environment>> = Mutex::new(None);
-
-#[derive(Clone, Copy)]
-pub(super) enum Boundary {
-    Image,
-    Periodic,
-}
 
 /// Сессия и входной буфер принадлежат одной задаче сборки или группе предпросмотров.
 pub(super) struct Model {

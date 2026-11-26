@@ -20,7 +20,12 @@ struct Entry {
 }
 
 impl Entry {
-    fn read(plan: &BuildPlan, asset: usize, control: &Control) -> Result<Vec<Self>> {
+    fn read(
+        plan: &BuildPlan,
+        asset: usize,
+        control: &Control,
+        entries: &mut Vec<Self>,
+    ) -> Result<()> {
         let texture = &plan.textures[asset];
         let image = textures::decode(&plan.game.read(&texture.path)?)?;
         ensure!(
@@ -34,7 +39,6 @@ impl Entry {
             texture.path
         );
         let width = image.width() / texture.frames;
-        let mut entries = Vec::new();
         for frame in 0..texture.frames {
             control.check()?;
             let region = Region {
@@ -58,7 +62,7 @@ impl Entry {
                 });
             }
         }
-        Ok(entries)
+        Ok(())
     }
 }
 
@@ -70,26 +74,27 @@ pub(super) struct Index {
 impl Index {
     pub fn build(plan: &BuildPlan, control: &Control, completed: &AtomicUsize) -> Result<Self> {
         let skipped = AtomicUsize::new(0);
-        let chunks = plan
+        let entries = plan
             .textures
             .par_iter()
             .enumerate()
-            .map(|(asset, _)| {
+            .try_fold(Vec::new, |mut entries, (asset, _)| {
                 control.check()?;
-                let result = Entry::read(plan, asset, control);
+                let result = Entry::read(plan, asset, control, &mut entries);
                 completed.fetch_add(1, Ordering::Relaxed);
-                if let Ok(entries) = result {
-                    Ok(entries)
-                } else {
+                if result.is_err() {
                     control.check()?;
                     skipped.fetch_add(1, Ordering::Relaxed);
-                    Ok(Vec::new())
                 }
+                Ok(entries)
             })
-            .collect::<Result<Vec<_>>>()?;
+            .try_reduce(Vec::new, |mut first, mut second| {
+                first.append(&mut second);
+                Ok::<_, anyhow::Error>(first)
+            })?;
         control.check()?;
         Ok(Self {
-            entries: chunks.into_iter().flatten().collect(),
+            entries,
             skipped: skipped.load(Ordering::Relaxed),
         })
     }

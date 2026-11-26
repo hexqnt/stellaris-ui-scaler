@@ -30,15 +30,18 @@ pub struct TexturePolicy {
 
 impl TexturePolicy {
     pub(crate) fn uses_neural(self) -> bool {
-        self.scale.get() > 1.0 && self.processing(None).options.algorithm == Algorithm::RealPlksr2x
+        self.scale.get() > 1.0
+            && self.algorithm(self.selection.resolve(None)) == Algorithm::RealPlksr2x
+    }
+
+    fn algorithm(self, recommendation: Option<AlgorithmRecommendation>) -> Algorithm {
+        recommendation.map_or(self.options.algorithm, |choice| choice.algorithm)
     }
 
     pub(crate) fn processing(self, features: Option<&ImageFeatures>) -> TextureProcessing {
         let mut options = self.options;
         let recommendation = self.selection.resolve(features);
-        if let Some(choice) = recommendation {
-            options.algorithm = choice.algorithm;
-        }
+        options.algorithm = self.algorithm(recommendation);
         if options.algorithm == Algorithm::RealPlksr2x {
             options.independent_frames = true;
         }
@@ -62,7 +65,7 @@ impl TexturePolicy {
             || (self.automatic.sharpening
                 && self.options.sharpening > 0.15
                 && !matches!(
-                    self.processing(None).options.algorithm,
+                    self.algorithm(self.selection.resolve(None)),
                     Algorithm::Bilinear
                         | Algorithm::Nearest
                         | Algorithm::Mitchell

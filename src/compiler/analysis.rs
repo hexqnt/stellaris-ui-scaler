@@ -6,8 +6,9 @@ use std::{
 use anyhow::{Context, Result};
 
 use crate::{
-    assets::{self, Diagnostic, Installation},
+    assets::{self, Diagnostic, Installation, TextureRole},
     config::{AutoSourceMods, Category, Profile},
+    fonts::{self, Catalog},
     pdx::{Document, Node},
     source_mods, textures,
 };
@@ -75,30 +76,25 @@ impl Analysis {
             .max(1);
         let mut references = Vec::new();
         block.try_walk(&mut |node| -> Result<()> {
-            let Some(reference) = assets::texture_reference(node) else {
+            let Some((reference, role)) = assets::texture_reference(node) else {
                 return Ok(());
             };
-            let mask = node.key.is_some_and(|key| {
-                ["animationmaskfile", "masking_texture"]
-                    .iter()
-                    .any(|candidate| key.eq_ignore_ascii_case(candidate))
-            });
-            if !self.textures.contains_key(reference.as_ref()) {
+            let mask_only = matches!(role, TextureRole::Mask);
+            if let Some(usage) = self.textures.get_mut(reference.as_ref()) {
+                usage.tiled |= tiled;
+                usage.mask_only &= mask_only;
+            } else {
                 let dimensions = self.inspect_reference(game, &reference, path, block)?;
                 self.textures.insert(
                     reference.to_string(),
                     TextureUsage {
                         dimensions,
                         frames: 1,
-                        tiled: false,
+                        tiled,
                         convert: false,
-                        mask_only: mask,
+                        mask_only,
                     },
                 );
-            }
-            if let Some(usage) = self.textures.get_mut(reference.as_ref()) {
-                usage.tiled |= tiled;
-                usage.mask_only &= mask;
             }
             references.push(reference.into_owned());
             Ok(())
@@ -307,20 +303,25 @@ pub fn plan_with_mods(
     control.check()?;
     let game = Installation::open(game)?.with_source_mods(source_mods)?;
     let mut sources = BTreeMap::new();
-    let mut font_usage = crate::fonts::usage::Index::default();
+    let mut font_usage = fonts::usage::Index::default();
+    let mut fonts = Catalog::default();
     let mut sprites = Vec::new();
     let mut analysis = Analysis::default();
     let paths: Vec<_> = game.interface_files().collect();
-    for (index, path) in paths.iter().enumerate() {
+    let total = paths.len();
+    for (index, path) in paths.into_iter().enumerate() {
         control.check()?;
         progress(Progress {
             stage: ProgressStage::Scan,
             completed: index,
-            total: paths.len(),
+            total,
         });
         control.check()?;
         let source = game.text(path)?;
         let doc = Document::parse(&source).with_context(|| format!("Cannot parse {path}"))?;
+        if fonts::is_font_file(path) {
+            fonts.read_document(&doc);
+        }
         if path.ends_with(".gui") {
             font_usage.read_gui(path, &doc);
         }
@@ -338,7 +339,7 @@ pub fn plan_with_mods(
                 Ok(())
             })?;
         }
-        sources.insert((*path).into(), source);
+        sources.insert(path.into(), source);
     }
     // Ресурсные значки, включая серые варианты, могут загружаться без объявления в GFX.
     for path in game
@@ -364,7 +365,7 @@ pub fn plan_with_mods(
     }
     control.check()?;
     let (textures, diagnostics) = analysis.finish();
-    let mut fonts = crate::fonts::Catalog::load(&game, &sources)?;
+    fonts.complete(&game)?;
     font_usage.apply(&mut fonts);
     control.check()?;
     Ok(BuildPlan {

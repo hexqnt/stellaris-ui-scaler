@@ -18,8 +18,7 @@ fn combined_gui_pass_preserves_sequential_transformations_and_diagnostic_spans()
         "interface/portrait.gfx",
         "portraitType = { name = GFX_portrait }",
     );
-    let control = Control::default();
-    let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&game).unwrap();
     for factor in [0.5, 1.0, 1.3846, 2.0] {
         let profile = Profile {
             scale: Scale::try_from(factor).unwrap(),
@@ -41,7 +40,7 @@ fn combined_gui_pass_preserves_sequential_transformations_and_diagnostic_spans()
         )
         .unwrap();
         let output = fixture.0.join("mod");
-        let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        let report = build_mod(&plan, &profile, &output).unwrap();
         assert_eq!(
             fs::read_to_string(output.join("interface/example.gui")).unwrap(),
             expected
@@ -57,13 +56,12 @@ fn combined_gui_pass_preserves_sequential_transformations_and_diagnostic_spans()
 fn combined_gfx_pass_preserves_nested_references_and_expression_spans() {
     let fixture = fixture();
     let game = fixture.0.join("game");
-    let control = Control::default();
     for value in ["7", "@[ height + 2 ]"] {
         let source = format!(
             r#"spriteTypes = {{ spriteType = {{ name = GFX_test texturefile = "gfx/test.png" noOfFrames = 2 animation = {{ animationmaskfile = "gfx/test.png" }} size = {{ x = "3" y = {value} }} }} }}"#
         );
         write(&game, "interface/example.gfx", &source);
-        let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+        let plan = scan_game(&game).unwrap();
         let profile = Profile::default();
         let mut diagnostics = Vec::new();
         let expected = source.replace("gfx/test.png", "gfx/test_scaled.png");
@@ -76,7 +74,7 @@ fn combined_gfx_pass_preserves_nested_references_and_expression_spans() {
         )
         .unwrap();
         let output = fixture.0.join("mod");
-        let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        let report = build_mod(&plan, &profile, &output).unwrap();
         assert_eq!(
             fs::read_to_string(output.join("interface/example.gfx")).unwrap(),
             expected
@@ -354,8 +352,7 @@ fn situation_icons_scale_once_in_standard_and_compact_builds() {
     for name in ["outliner_entry.dds", "outliner_selected_entry.dds"] {
         fs::write(backgrounds.join(name), &dds).unwrap();
     }
-    let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [1.3846, 1.86921, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -365,7 +362,7 @@ fn situation_icons_scale_once_in_standard_and_compact_builds() {
                 ..Profile::default()
             };
             profile.outliner.compact = compact;
-            compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+            build_mod(&plan, &profile, &output).unwrap();
             let text = fs::read_to_string(output.join("interface/outliner.gui")).unwrap();
             let doc = Document::parse(&text).unwrap();
             let icons = doc.nodes[0].children()[0].children();
@@ -408,8 +405,7 @@ fn procedural_sprite_dimensions_prevent_a_second_widget_scale() {
         iconType = { name = unknown_chart spriteType = GFX_unknown_chart }
     }",
     );
-    let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [1.3846, 1.86921, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -417,7 +413,7 @@ fn procedural_sprite_dimensions_prevent_a_second_widget_scale() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gui = fs::read_to_string(output.join("interface/charts.gui")).unwrap();
         let doc = Document::parse(&gui).unwrap();
         let icons = doc.nodes[0].children();
@@ -579,13 +575,13 @@ fn standard_layout_has_no_reference_mod_overrides() {
     for (file, source) in sources {
         write(&root, &format!("interface/{file}"), &source);
     }
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let profile = Profile {
         scale: Scale::try_from(2.0).unwrap(),
         ..Profile::default()
     };
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     for (file, _, _, expected) in cases {
         let gui = fs::read_to_string(output.join(format!("interface/{file}"))).unwrap();
         assert!(gui.contains(expected), "{file}: {expected}");
@@ -621,7 +617,7 @@ fn sprite_sheet_aliases_inherit_texture_scaling() {
         iconType = { name = "missing" spriteType = "GFX_missing" }
     }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [1.3846, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -629,7 +625,7 @@ fn sprite_sheet_aliases_inherit_texture_scaling() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gui = fs::read_to_string(output.join("interface/aliases.gui")).unwrap();
         let doc = Document::parse(&gui).unwrap();
         let icons = doc.nodes[0].children();

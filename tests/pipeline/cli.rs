@@ -192,7 +192,7 @@ fn cli_sync_saves_the_current_list_and_failed_sync_preserves_the_profile() {
         profile.auto_source_mods.as_ref().unwrap().source_mods,
         [root.canonicalize().unwrap()]
     );
-    compiler::plan_with_profile(&game, &profile, &Control::default(), &mut |_| {}).unwrap();
+    scan_game_with_profile(&game, &profile).unwrap();
     let saved = fs::read(&profile_path).unwrap();
     write(&user_data, "dlc_load.json", "broken export");
     assert!(!run_sync().status.success());

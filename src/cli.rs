@@ -1,6 +1,5 @@
 use std::{
     fs,
-    io::Write,
     num::NonZeroUsize,
     path::{Path, PathBuf},
 };
@@ -11,7 +10,7 @@ use serde::Serialize;
 
 use crate::{
     assets::Installation,
-    atomic_file::AtomicFile,
+    atomic_file::{AtomicFile, Durability},
     compiler::{self, Control, Progress},
     config::{Algorithm, Profile, Scale},
     source_mods, validation,
@@ -137,7 +136,6 @@ impl SourceArgs {
             settings.source_mods = discovered.source_mods;
         }
         profile.source_mods.extend(self.source_mods);
-        profile.check()?;
         Ok(self.game)
     }
 }
@@ -158,10 +156,7 @@ struct ProfileArgs {
 
 impl ProfileArgs {
     fn load(self) -> Result<Profile> {
-        let mut profile = self
-            .profile
-            .as_deref()
-            .map_or_else(|| Ok(Profile::default()), Profile::load)?;
+        let mut profile = load_profile(self.profile.as_deref())?;
         if let Some(scale) = self.scale {
             profile.scale = scale;
         }
@@ -169,9 +164,12 @@ impl ProfileArgs {
             profile.textures.algorithm = algorithm;
             profile.auto_algorithm = false;
         }
-        profile.check()?;
         Ok(profile)
     }
+}
+
+fn load_profile(path: Option<&Path>) -> Result<Profile> {
+    path.map_or_else(|| Ok(Profile::default()), Profile::load)
 }
 
 #[derive(Parser)]
@@ -186,7 +184,7 @@ struct Cli {
 fn json<T: Serialize>(value: &T, output: Option<&Path>) -> Result<()> {
     let text = serde_json::to_string_pretty(value)?;
     if let Some(output) = output {
-        AtomicFile::prepare(output, |file| file.write_all(text.as_bytes()))
+        AtomicFile::prepare(output, text.as_bytes(), Durability::Buffered)
             .and_then(AtomicFile::publish)
             .with_context(|| format!("Cannot write JSON report: {}", output.display()))?;
     } else {
@@ -200,7 +198,7 @@ fn json<T: Serialize>(value: &T, output: Option<&Path>) -> Result<()> {
 )]
 fn progress(event: Progress) {
     if event.completed.is_multiple_of(100) || event.completed == event.total {
-        eprintln!("{}: {}/{}", event.stage, event.completed, event.total);
+        eprintln!("{event}");
     }
 }
 fn scan(game: &Path, profile: &Profile, control: &Control) -> Result<compiler::BuildPlan> {
@@ -231,9 +229,7 @@ pub fn run() -> Result<()> {
             profile,
             output,
         } => {
-            let mut profile = profile
-                .as_deref()
-                .map_or_else(|| Ok(Profile::default()), Profile::load)?;
+            let mut profile = load_profile(profile.as_deref())?;
             let game = sources.apply(&mut profile)?;
             let plan = scan(&game, &profile, &Control::default())?;
             json(&plan.report(), output.as_deref())
@@ -304,7 +300,7 @@ fn benchmark(
         .map_or(Algorithm::RESAMPLING.as_slice(), std::slice::from_ref);
     let mut profile = settings.load()?;
     let game = sources.apply(&mut profile)?;
-    let plan = compiler::plan_with_profile(&game, &profile, &Control::default(), &mut progress)?;
+    let plan = scan(&game, &profile, &Control::default())?;
     fs::create_dir_all(output)?;
     let mut measurements = Vec::new();
     for (index, asset) in plan

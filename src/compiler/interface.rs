@@ -39,11 +39,11 @@ pub(super) fn compile(
     let mut shared_background = None;
     for (index, (path, source)) in plan.sources.iter().enumerate() {
         control.check()?;
-        progress(Progress {
-            stage: ProgressStage::Interface,
-            completed: index,
-            total: plan.sources.len(),
-        });
+        progress(Progress::new(
+            ProgressStage::Interface,
+            index,
+            plan.sources.len(),
+        ));
         let mut text = if path.ends_with(".gui") {
             transform_gui(source, path, profile, &statuses, diagnostics)?
         } else if fonts::is_font_file(path) {
@@ -67,8 +67,8 @@ pub(super) fn compile(
         if path == "interface/outliner.gfx" && profile.outliner.compact {
             text = patch_outliner(&text, profile, &mut shared_background)?;
         }
-        Document::parse(&text).with_context(|| format!("Invalid generated syntax: {path}"))?;
         if text != *source {
+            Document::parse(&text).with_context(|| format!("Invalid generated syntax: {path}"))?;
             write(root, path, text.as_bytes())?;
         }
     }
@@ -191,7 +191,7 @@ fn transform_gfx(
 
 fn rewrite_references(node: &Node<'_>, converted: &BTreeSet<&str>, edits: &mut Edits) {
     node.walk(&mut |child| {
-        if let Some(normalized) = assets::texture_reference(child)
+        if let Some((normalized, _)) = assets::texture_reference(child)
             && converted.contains(normalized.as_ref())
         {
             edits.atom(child, format!("\"{}\"", textures::output_name(&normalized)));
@@ -258,12 +258,8 @@ fn write_support(
     let music_background = "gfx/interface/main/topbar_background_cutoff.dds";
     if plan.game.contains(music_background) {
         let source = textures::decode(&plan.game.read(music_background)?)?;
-        let image = textures::process(
-            &source,
-            profile.texture_scale(music_background, Category::Frame),
-            1,
-            &profile.options(music_background, Category::Frame),
-        )?;
+        let policy = profile.texture_policy(music_background, Category::Frame, None);
+        let image = textures::process(&source, policy.scale, 1, &policy.processing(None).options)?;
         write(root, music_background, &textures::resource_dds(&image)?)?;
     }
     if profile.outliner.compact {

@@ -1,43 +1,33 @@
-use std::{
-    borrow::Cow,
-    path::{Path, PathBuf},
-};
+use std::{borrow::Cow, path::Path};
 
 use eframe::egui;
 
-use super::{Studio, WorkspaceTab, icons, mod_install, path_picker::Target, theme};
+use super::{
+    Studio, WorkspaceTab, icons, mod_install,
+    path_picker::{PathEdit, Target},
+    theme,
+};
 
 impl Studio {
     fn picture_controls(&mut self, ui: &mut egui::Ui, width: f32) {
         ui.label("Picture");
         ui.horizontal(|ui| {
-            let mut picture = self
-                .profile
-                .picture
-                .as_ref()
-                .map_or_default(|path| path.to_string_lossy());
-            if ui
-                .add(
-                    egui::TextEdit::singleline(&mut picture)
-                        .hint_text("Image path (optional)")
-                        .desired_width((width - 80.0).max(100.0)),
-                )
-                .on_hover_text(
-                    "Saved in the profile; rebuild and reinstall to update the mod picture",
-                )
-                .changed()
-            {
-                self.profile.picture =
-                    (!picture.is_empty()).then(|| PathBuf::from(picture.as_ref()));
-            }
-            self.path_picker.button(
+            if let Some(PathEdit(picture)) = self.path_picker.optional_field(
                 ui,
                 Target::Picture,
-                self.profile
-                    .picture
-                    .as_deref()
-                    .unwrap_or_else(|| Path::new("")),
-            );
+                self.profile.picture.as_deref(),
+                |ui, edit| {
+                    ui.add(
+                        edit.hint_text("Image path (optional)")
+                            .desired_width((width - 80.0).max(100.0)),
+                    )
+                    .on_hover_text(
+                        "Saved in the profile; rebuild and reinstall to update the mod picture",
+                    )
+                },
+            ) {
+                self.profile.picture = picture;
+            }
             if ui.button("Clear").clicked() {
                 self.profile.picture = None;
             }

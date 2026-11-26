@@ -24,8 +24,7 @@ fn navbar_lock_keeps_native_offsets_after_engine_repositions_it() {
             }
         }"#,
     );
-    let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [0.5, 1.0, 1.3846, 1.86921, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -33,7 +32,7 @@ fn navbar_lock_keeps_native_offsets_after_engine_repositions_it() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gui = fs::read_to_string(output.join(path))
             .unwrap_or_else(|_| fs::read_to_string(root.join(path)).unwrap());
         let doc = Document::parse(&gui).unwrap();

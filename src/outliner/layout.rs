@@ -3,7 +3,7 @@ use anyhow::Result;
 
 use crate::pdx::{Document, Edits, Node};
 
-use super::{set, xy};
+use super::{rows, set, xy};
 
 #[derive(Default)]
 struct Layout {
@@ -12,6 +12,19 @@ struct Layout {
     max_width: Option<i64>,
     orientation: Option<&'static str>,
     format: Option<&'static str>,
+}
+
+impl Layout {
+    const fn upper_right(&mut self, x: i64, y: i64) {
+        self.position = Some((x, y));
+        self.orientation = Some("UPPER_RIGHT");
+    }
+
+    const fn right_box(&mut self, x: i64, y: i64, width: i64, height: i64) {
+        self.upper_right(x, y);
+        self.size = Some((width, height));
+        self.format = Some("right");
+    }
 }
 
 #[allow(
@@ -24,31 +37,19 @@ fn special_layout(window: &str, name: &str, width: i64, ratio: f64) -> Layout {
     let planet = window.contains("planet_entry") || window.contains("arkship_colony");
     if planet {
         match name {
-            "icon" => {
-                layout.position = Some((-p(344.0), p(4.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "icon" => layout.upper_right(-p(344.0), p(4.0)),
             "name" => layout.max_width = Some(p(150.0)),
             "colony_type" => {
-                layout.position = Some((p(200.0) - width, p(2.0)));
+                layout.upper_right(p(200.0) - width, p(2.0));
                 layout.max_width = Some(p(150.0));
-                layout.orientation = Some("UPPER_RIGHT");
             }
             "planet_status_container" => {
                 layout.position = Some((p(171.0), p(4.0)));
                 layout.size = Some((p(104.0), p(21.0)));
                 layout.orientation = Some("UPPER_LEFT");
             }
-            "box" => {
-                layout.position = Some((p(196.0) - width, p(2.0)));
-                layout.size = Some((p(159.0), p(26.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-                layout.format = Some("right");
-            }
-            "progress" | "build_progress" => {
-                layout.position = Some((p(280.0) - width, p(9.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "box" => layout.right_box(p(196.0) - width, p(2.0), p(159.0), p(26.0)),
+            "progress" | "build_progress" => layout.upper_right(p(280.0) - width, p(9.0)),
             _ => (),
         }
     }
@@ -60,16 +61,8 @@ fn special_layout(window: &str, name: &str, width: i64, ratio: f64) -> Layout {
     }
     if starbase && !window.contains("arkship") {
         match name {
-            "box" => {
-                layout.position = Some((p(316.0) - width, p(2.0)));
-                layout.size = Some((p(150.0), p(26.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-                layout.format = Some("right");
-            }
-            "military_power" => {
-                layout.position = Some((p(88.0) - width, p(2.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "box" => layout.right_box(p(316.0) - width, p(2.0), p(150.0), p(26.0)),
+            "military_power" => layout.upper_right(p(88.0) - width, p(2.0)),
             "name" => layout.max_width = Some(p(205.0)),
             _ => (),
         }
@@ -80,12 +73,7 @@ fn special_layout(window: &str, name: &str, width: i64, ratio: f64) -> Layout {
                 layout.position = Some((p(321.0), p(2.0)));
                 layout.size = Some((p(184.0), p(26.0)));
             }
-            "box" => {
-                layout.position = Some((p(346.0) - width, p(2.0)));
-                layout.size = Some((p(159.0), p(26.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-                layout.format = Some("right");
-            }
+            "box" => layout.right_box(p(346.0) - width, p(2.0), p(159.0), p(26.0)),
             _ => (),
         }
     }
@@ -95,23 +83,13 @@ fn special_layout(window: &str, name: &str, width: i64, ratio: f64) -> Layout {
     }
     if window.contains("fleet_entry") {
         match name {
-            "fleet_status_grid" => {
-                layout.position = Some((p(343.0) - width, p(4.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
-            "size_limit" => {
-                layout.position = Some((p(255.0) - width, p(2.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "fleet_status_grid" => layout.upper_right(p(343.0) - width, p(4.0)),
+            "size_limit" => layout.upper_right(p(255.0) - width, p(2.0)),
             "offensive_power" => {
-                layout.position = Some((p(485.0) - width, p(2.0)));
+                layout.upper_right(p(485.0) - width, p(2.0));
                 layout.max_width = Some(p(95.0));
-                layout.orientation = Some("UPPER_RIGHT");
             }
-            "progress" => {
-                layout.position = Some((p(255.0) - width, p(9.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "progress" => layout.upper_right(p(255.0) - width, p(9.0)),
             _ => (),
         }
     }
@@ -123,10 +101,7 @@ fn special_layout(window: &str, name: &str, width: i64, ratio: f64) -> Layout {
                 layout.size = Some((p(180.0), p(26.0)));
                 layout.format = Some("right");
             }
-            "army_power" => {
-                layout.position = Some((p(95.0) - width, p(2.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "army_power" => layout.upper_right(p(95.0) - width, p(2.0)),
             _ => (),
         }
     }
@@ -146,24 +121,17 @@ fn special_layout(window: &str, name: &str, width: i64, ratio: f64) -> Layout {
             }
             "upgrade_icon" => layout.position = Some((p(252.0), p(4.0))),
             "type_target" => layout.position = Some((p(252.0), p(1.0))),
-            "progress_bar" => {
-                layout.position = Some((p(280.0) - width, p(9.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "progress_bar" => layout.upper_right(p(280.0) - width, p(9.0)),
             _ => (),
         }
     }
     if window.contains("waystation_network") {
         match name {
             "waystation_count" => {
-                layout.position = Some((-p(85.0), p(3.0)));
+                layout.upper_right(-p(85.0), p(3.0));
                 layout.max_width = Some(p(65.0));
-                layout.orientation = Some("UPPER_RIGHT");
             }
-            "waystation_count_icon" => {
-                layout.position = Some((-p(100.0), p(3.0)));
-                layout.orientation = Some("UPPER_RIGHT");
-            }
+            "waystation_count_icon" => layout.upper_right(-p(100.0), p(3.0)),
             "stockpile_info" => layout.position = Some((p(250.0), p(3.0))),
             "stockpile_status" => {
                 layout.position = Some((0, 0));
@@ -193,11 +161,7 @@ pub(super) fn apply_special(source: &str, width: i64, ratio: f64) -> Result<Stri
     fn visit(nodes: &[Node<'_>], window: &str, width: i64, ratio: f64, edits: &mut Edits) {
         for node in nodes {
             let name = node.named().unwrap_or_default();
-            let window = if name.starts_with("outliner_") && name.ends_with("entry_window") {
-                name
-            } else {
-                window
-            };
+            let window = if rows::is_entry(name) { name } else { window };
             if !window.is_empty() && name != window {
                 let layout = special_layout(window, name, width, ratio);
                 if let Some((x, y)) = layout.position {
@@ -207,13 +171,18 @@ pub(super) fn apply_special(source: &str, width: i64, ratio: f64) -> Result<Stri
                     xy(node, "size", w, h, edits);
                 }
                 if let Some(w) = layout.max_width {
-                    set(node, "maxWidth", w.to_string(), edits);
+                    set(node, "maxWidth", w, edits);
                 }
                 if let Some(orientation) = layout.orientation {
-                    set(node, "Orientation", format!("\"{orientation}\""), edits);
+                    set(
+                        node,
+                        "Orientation",
+                        format_args!("\"{orientation}\""),
+                        edits,
+                    );
                 }
                 if let Some(format) = layout.format {
-                    set(node, "format", format.into(), edits);
+                    set(node, "format", format, edits);
                 }
             }
             visit(node.children(), window, width, ratio, edits);

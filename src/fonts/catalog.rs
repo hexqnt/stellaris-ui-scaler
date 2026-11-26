@@ -58,9 +58,7 @@ impl Group {
 
     #[must_use]
     pub fn native(&self, language: &str) -> Option<&Variant> {
-        self.variants.iter().rev().find(|variant| {
-            variant.languages.is_empty() || variant.languages.iter().any(|item| item == language)
-        })
+        last_variant(&self.variants, language, |variant| &variant.languages)
     }
 
     #[must_use]
@@ -77,8 +75,8 @@ impl Group {
     }
 
     fn bitmap_variant(&self, language: &str) -> Option<&BitmapVariant> {
-        self.bitmap_variants.iter().rev().find(|variant| {
-            variant.languages.is_empty() || variant.languages.iter().any(|item| item == language)
+        last_variant(&self.bitmap_variants, language, |variant| {
+            &variant.languages
         })
     }
 
@@ -148,15 +146,26 @@ impl Group {
             resolved.ttf = true;
         } else {
             resolved.base_size = rule.base_size.map(f64::from).or(resolved.base_size);
-        }
-        if resolved.ttf {
-            resolved.family = rule.family.as_deref().unwrap_or(resolved.family);
+            if resolved.ttf {
+                resolved.family = rule.family.as_deref().unwrap_or(resolved.family);
+            }
         }
         resolved.size = resolved
             .base_size
             .map(|size| scaled_size(size, rule.scale.unwrap_or(scale)));
         resolved
     }
+}
+
+fn last_variant<'a, T>(
+    variants: &'a [T],
+    language: &str,
+    languages: impl Fn(&T) -> &[String],
+) -> Option<&'a T> {
+    variants.iter().rev().find(|variant| {
+        let supported = languages(variant);
+        supported.is_empty() || supported.iter().any(|item| item == language)
+    })
 }
 
 pub struct Resolved<'a> {
@@ -190,6 +199,11 @@ impl Catalog {
                 catalog.read_document(&Document::parse(source)?);
             }
         }
+        catalog.complete(game)?;
+        Ok(catalog)
+    }
+
+    pub(crate) fn complete(&mut self, game: &Installation) -> Result<()> {
         for path in game.resources.keys().filter(|path| {
             path.starts_with("fonts/")
                 && std::path::Path::new(path)
@@ -198,14 +212,13 @@ impl Catalog {
         }) {
             let source = game.text(path)?;
             let doc = Document::parse(&source)?;
-            catalog
-                .families
+            self.families
                 .extend(doc.nodes.iter().filter_map(Node::named).map(str::to_owned));
         }
         if game.contains("gfx/fonts/Jura-VariableFont_wght.ttf") {
-            catalog.families.push("Jura_ttf".into());
+            self.families.push("Jura_ttf".into());
         }
-        for group in &mut catalog.groups {
+        for group in &mut self.groups {
             if let Some(path) = &group.bitmap_path {
                 (group.bitmap_face, group.bitmap_size) = bitmap_metadata(game, path)?;
             }
@@ -213,11 +226,11 @@ impl Catalog {
                 (variant.face, variant.size) = bitmap_metadata(game, &variant.path)?;
             }
         }
-        catalog.finish();
-        Ok(catalog)
+        self.finish();
+        Ok(())
     }
 
-    pub(super) fn read_document(&mut self, doc: &Document<'_>) {
+    pub(crate) fn read_document(&mut self, doc: &Document<'_>) {
         doc.walk(|node| {
             if !matches!(node.key, Some("bitmapfont" | "bitmapfont_override")) {
                 return;

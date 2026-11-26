@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     env, fs,
     path::{Path, PathBuf},
 };
@@ -8,7 +7,7 @@ use crate::{paths, pdx};
 
 #[derive(Debug)]
 enum Token<'a> {
-    Text(Cow<'a, str>),
+    Text(&'a str),
     Open,
     Close,
 }
@@ -90,87 +89,63 @@ fn discover_in(steam: &[PathBuf], mut candidates: Vec<PathBuf>) -> Vec<GameLocat
     found
 }
 
-/// VDF отличается от формата Paradox отсутствием знака равенства и экранированием путей.
-fn tokens(mut source: &str) -> Option<Vec<Token<'_>>> {
-    let mut result = Vec::new();
-    while !source.is_empty() {
-        source = source.trim_start();
-        if source.is_empty() {
-            break;
-        }
-        if source.starts_with("//") {
-            source = source.split_once('\n').map_or_default(|(_, tail)| tail);
-            continue;
-        }
-        match source.as_bytes()[0] {
-            b'{' => {
-                result.push(Token::Open);
-                source = &source[1..];
+/// VDF использует строки в кавычках, пары без знака равенства и комментарии с //.
+fn tokens(mut source: &str) -> impl Iterator<Item = Result<Token<'_>, ()>> {
+    std::iter::from_fn(move || {
+        loop {
+            source = source.trim_start();
+            if !source.starts_with("//") {
+                break;
             }
-            b'}' => {
-                result.push(Token::Close);
-                source = &source[1..];
-            }
-            b'"' => {
-                source = &source[1..];
-                let mut end = 0;
-                let bytes = source.as_bytes();
-                while let Some(&byte) = bytes.get(end) {
-                    if byte == b'"' {
-                        break;
-                    }
-                    end += if byte == b'\\' && matches!(bytes.get(end + 1), Some(b'\\' | b'"')) {
-                        2
-                    } else {
-                        1
-                    };
-                }
-                if bytes.get(end) != Some(&b'"') {
-                    return None;
-                }
-                let raw = &source[..end];
-                result.push(Token::Text(pdx::unescape(raw)));
-                source = &source[end + 1..];
-            }
-            _ => return None,
+            source = source.split_once('\n').map_or("", |(_, tail)| tail);
         }
-    }
-    Some(result)
+        let token = match source.as_bytes().first()? {
+            b'{' => Some((Token::Open, 1)),
+            b'}' => Some((Token::Close, 1)),
+            b'"' => pdx::quoted_end(&source.as_bytes()[1..])
+                .map(|end| (Token::Text(&source[1..=end]), end + 2)),
+            _ => None,
+        };
+        let Some((token, length)) = token else {
+            source = "";
+            return Some(Err(()));
+        };
+        source = &source[length..];
+        Some(Ok(token))
+    })
 }
 
 fn library_paths(source: &str) -> Vec<PathBuf> {
-    let Some(tokens) = tokens(source) else {
-        return Vec::new();
-    };
     let mut paths = Vec::new();
     let mut depth = 0_u32;
     let mut libraries = None;
     let mut entry_depth = None;
-    let mut cursor = tokens.as_slice();
-    while let Some((token, rest)) = cursor.split_first() {
-        match (token, rest.first()) {
-            (Token::Text(key), Some(Token::Open)) => {
-                if depth == 0 && key.eq_ignore_ascii_case("libraryfolders") {
-                    libraries = Some(depth + 1);
+    let mut tokens = tokens(source);
+    while let Some(token) = tokens.next() {
+        match token {
+            Ok(Token::Text(key)) => match tokens.next() {
+                Some(Ok(Token::Open)) => {
+                    if depth == 0 && key.eq_ignore_ascii_case("libraryfolders") {
+                        libraries = Some(depth + 1);
+                    }
+                    if libraries == Some(depth) && key.parse::<u32>().is_ok() {
+                        entry_depth = Some(depth + 1);
+                    }
+                    depth += 1;
                 }
-                if libraries == Some(depth) && key.parse::<u32>().is_ok() {
-                    entry_depth = Some(depth + 1);
-                }
-                depth += 1;
-                cursor = &rest[1..];
-            }
-            (Token::Text(key), Some(Token::Text(value))) => {
-                let legacy = libraries == Some(depth) && key.parse::<u32>().is_ok();
-                let modern = entry_depth == Some(depth) && key.eq_ignore_ascii_case("path");
-                if legacy || modern {
-                    let path = PathBuf::from(value.as_ref());
-                    if path.is_absolute() {
-                        paths.push(path);
+                Some(Ok(Token::Text(value))) => {
+                    let legacy = libraries == Some(depth) && key.parse::<u32>().is_ok();
+                    let modern = entry_depth == Some(depth) && key.eq_ignore_ascii_case("path");
+                    if legacy || modern {
+                        let path = PathBuf::from(pdx::unescape(value).as_ref());
+                        if path.is_absolute() {
+                            paths.push(path);
+                        }
                     }
                 }
-                cursor = &rest[1..];
-            }
-            (Token::Close, _) if depth > 0 => {
+                _ => return Vec::new(),
+            },
+            Ok(Token::Close) if depth > 0 => {
                 if libraries == Some(depth) {
                     libraries = None;
                 }
@@ -178,7 +153,6 @@ fn library_paths(source: &str) -> Vec<PathBuf> {
                     entry_depth = None;
                 }
                 depth -= 1;
-                cursor = rest;
             }
             _ => return Vec::new(),
         }
@@ -221,9 +195,10 @@ mod tests {
             r#""path" "D:\\SteamLibrary" // comment
         "name" "Some \"name\"""#,
         )
+        .collect::<Result<Vec<_>, _>>()
         .unwrap();
-        std::assert_matches!(&tokens[1], Token::Text(value) if value == r"D:\SteamLibrary");
-        std::assert_matches!(&tokens[3], Token::Text(value) if value == "Some \"name\"");
+        std::assert_matches!(&tokens[1], Token::Text(value) if pdx::unescape(value) == r"D:\SteamLibrary");
+        std::assert_matches!(&tokens[3], Token::Text(value) if pdx::unescape(value) == "Some \"name\"");
     }
 
     #[test]

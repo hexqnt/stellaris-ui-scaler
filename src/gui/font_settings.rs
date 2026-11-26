@@ -1,3 +1,5 @@
+mod usage;
+
 use eframe::egui::{self, RichText};
 
 use crate::{
@@ -110,11 +112,11 @@ impl FontSettings {
                             ui.selectable_value(&mut self.area, Some(area), area.label());
                         }
                     });
-                if !matches_area(&catalog.groups[self.selected], self.area)
+                if !usage::matches_area(&catalog.groups[self.selected], self.area)
                     && let Some(index) = catalog
                         .groups
                         .iter()
-                        .position(|group| matches_area(group, self.area))
+                        .position(|group| usage::matches_area(group, self.area))
                 {
                     self.selected = index;
                 }
@@ -131,7 +133,7 @@ impl FontSettings {
                     .show(ui, |ui| {
                         ui.spacing_mut().item_spacing.y = 3.0;
                         for (index, group) in catalog.groups.iter().enumerate() {
-                            if !matches_area(group, self.area) {
+                            if !usage::matches_area(group, self.area) {
                                 continue;
                             }
                             let default = FontRule::default();
@@ -148,7 +150,7 @@ impl FontSettings {
                                 .truncate();
                             if ui
                                 .add_sized([ui.available_width(), 34.0], row)
-                                .on_hover_ui(|ui| usage_tooltip(ui, group))
+                                .on_hover_ui(|ui| usage::tooltip(ui, group))
                                 .clicked()
                             {
                                 self.selected = index;
@@ -159,7 +161,7 @@ impl FontSettings {
         egui::CentralPanel::default()
             .frame(theme::frame(theme::PANEL, 20))
             .show(ui, |ui| {
-                if !matches_area(&catalog.groups[self.selected], self.area) {
+                if !usage::matches_area(&catalog.groups[self.selected], self.area) {
                     ui.weak("No fonts found for this area in the scanned GUI files. Try All interface areas.");
                     return;
                 }
@@ -327,16 +329,16 @@ fn group_controls(
     if let Some(note) = group.usage_note() {
         ui.label(note);
     }
-    area_summary(ui, group, 6);
+    usage::summary(ui, group, 6);
     ui.small("Changes to this group affect every place that uses it.");
     summary(ui, group, language, scale, rule, mode);
     ui.add_space(8.0);
     ui.collapsing(
         format!("Where used · references: {}", group.usages.len()),
         |ui| {
-            usage_hint(ui);
-            area_summary(ui, group, usize::MAX);
-            usage_list(ui, group, usize::MAX);
+            usage::hint(ui);
+            usage::summary(ui, group, usize::MAX);
+            usage::list(ui, group, usize::MAX);
         },
     );
     ui.add_space(12.0);
@@ -384,77 +386,6 @@ fn group_controls(
         .clicked()
     {
         *rule = FontRule::default();
-    }
-}
-
-fn usage_hint(ui: &mut egui::Ui) {
-    ui.small("Areas are recognized from GUI files and widget names; typical roles describe the base game. Labels marked inferred rely on built-in group names. References use the game and enabled mods; engine defaults and runtime assignments are not included.");
-}
-
-fn usage_tooltip(ui: &mut egui::Ui, group: &Group) {
-    ui.strong(&group.name);
-    if let Some(note) = group.usage_note() {
-        ui.label(note);
-    }
-    if group.usage_areas().next().is_some() {
-        area_summary(ui, group, 8);
-    } else {
-        usage_list(ui, group, 6);
-    }
-}
-
-fn matches_area(group: &Group, area: Option<UsageArea>) -> bool {
-    area.is_none_or(|area| group.uses_area(area))
-}
-
-fn area_summary(ui: &mut egui::Ui, group: &Group, limit: usize) {
-    let mut count = 0;
-    let mut text = String::new();
-    for area in group.usage_areas() {
-        count += 1;
-        if count <= limit {
-            if !text.is_empty() {
-                text.push_str(", ");
-            }
-            text.push_str(area.label());
-            if !group.usages.iter().any(|usage| usage.area == Some(area)) {
-                text.push_str(" (inferred)");
-            }
-        }
-    }
-    if !text.is_empty() {
-        ui.add(egui::Label::new(text).wrap());
-    }
-    if count > limit {
-        ui.weak(format!("{} more areas in Where used.", count - limit));
-    }
-}
-
-fn usage_list(ui: &mut egui::Ui, group: &Group, limit: usize) {
-    if group.usages.is_empty() {
-        ui.weak("No explicit GUI references found. This does not mean the font is unused.");
-        return;
-    }
-    let mut file = None;
-    for usage in group.usages.iter().take(limit) {
-        if file != Some(usage.file.as_ref()) {
-            ui.add_space(4.0);
-            ui.strong(usage.file.as_ref());
-            file = Some(usage.file.as_ref());
-        }
-        ui.label(format!(
-            "Line {} · {} · {} · {}",
-            usage.line,
-            usage.widget.as_deref().unwrap_or("Unnamed widget"),
-            usage.kind,
-            usage.property,
-        ));
-    }
-    if group.usages.len() > limit {
-        ui.weak(format!(
-            "{} more references. Select the group and expand Where used to see all.",
-            group.usages.len() - limit
-        ));
     }
 }
 

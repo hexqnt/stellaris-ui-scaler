@@ -1,15 +1,15 @@
-use std::{fs, io::Write, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 use anyhow::{Context, Result, ensure};
 
 use crate::{
     assets::Installation,
-    atomic_file::AtomicFile,
-    config::{Profile, TexturePolicy},
+    atomic_file::{AtomicFile, Durability},
+    config::TexturePolicy,
     textures,
 };
 
-use super::{CacheMode, Control, PIPELINE_VERSION, TextureAsset, png, preview::render_texture};
+use super::{CacheMode, Control, PIPELINE_VERSION, TextureAsset, png};
 
 pub(super) struct TextureCache {
     root: PathBuf,
@@ -31,10 +31,10 @@ impl TextureCache {
         &mut self,
         game: &Installation,
         asset: &'a TextureAsset,
-        profile: &Profile,
+        policy: TexturePolicy,
+        reproduction: bool,
     ) -> Result<PendingTexture<'a>> {
         let source = game.read(&asset.path)?;
-        let policy = asset.policy(profile);
         let options = policy.processing(None).options;
         let scale = policy.scale;
 
@@ -52,7 +52,7 @@ impl TextureCache {
                 asset.category,
                 asset.frames,
                 asset.tiled,
-                profile.reproduction,
+                reproduction,
                 &asset.path,
                 textures::cache_identity(options.algorithm),
             ),
@@ -89,10 +89,6 @@ pub(super) struct PendingTexture<'a> {
 }
 
 impl PendingTexture<'_> {
-    pub(super) fn uses_neural(&self) -> bool {
-        self.policy.uses_neural()
-    }
-
     pub(super) fn process(
         self,
         processor: &textures::Processor,
@@ -109,15 +105,9 @@ impl PendingTexture<'_> {
             let image = textures::decode(&self.source)
                 .with_context(|| format!("Cannot decode {}", self.asset.path))?;
             let features = self.policy.analyze(&image, self.asset.frames)?;
-            let options = self.policy.processing(features.as_ref()).options;
-            let image = render_texture(
-                self.asset,
-                self.policy.scale,
-                &image,
-                &options,
-                processor,
-                control,
-            )?;
+            let image =
+                self.asset
+                    .render(&image, self.policy, features.as_ref(), processor, control)?;
             (png(&image)?, image, false)
         };
         // Для ресурсных значков используем уже декодированное изображение, минуя повторное чтение PNG.
@@ -143,7 +133,7 @@ pub(super) struct ProcessedTexture {
 impl ProcessedTexture {
     pub(super) fn store(&self) -> Result<()> {
         if !self.hit {
-            AtomicFile::prepare(&self.target, |file| file.write_all(&self.png))?.publish()?;
+            AtomicFile::prepare(&self.target, &self.png, Durability::Buffered)?.publish()?;
         }
         Ok(())
     }

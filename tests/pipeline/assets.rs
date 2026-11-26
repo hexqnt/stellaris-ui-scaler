@@ -18,7 +18,7 @@ fn gfx_mask_roles_are_recognized_without_misclassifying_shared_color_textures() 
         spriteType = { name = "GFX_other" texturefile = "gfx/shared.png" }
     }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let category = |path| {
         plan.textures
             .iter()

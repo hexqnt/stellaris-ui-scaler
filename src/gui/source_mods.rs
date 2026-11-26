@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use eframe::egui::{self, Align, Layout};
@@ -9,61 +9,56 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::{config::Profile, source_mods};
 
-use super::path_picker::{Picker, Target};
+use super::path_picker::{PathEdit, Picker, Target};
 
-enum ScanNotice {
-    ModsChanged {
-        changes: source_mods::ModListMismatch,
-        removed_manual: bool,
-    },
-    ManualSourcesRemoved,
+#[derive(Default)]
+struct ScanNotice {
+    changes: Option<source_mods::ModListMismatch>,
+    removed_manual: bool,
 }
 
 impl ScanNotice {
-    const fn message(&self) -> &'static str {
-        match self {
-            Self::ModsChanged { .. } => "Enabled UI mods changed; the current list was loaded.",
-            Self::ManualSourcesRemoved => {
-                "Only enabled launcher mods were loaded; manual folders removed."
-            }
+    const fn message(&self) -> Option<&'static str> {
+        if self.changes.is_some() {
+            Some("Enabled UI mods changed; the current list was loaded.")
+        } else if self.removed_manual {
+            Some("Only enabled launcher mods were loaded; manual folders removed.")
+        } else {
+            None
         }
     }
 }
 
 impl fmt::Display for ScanNotice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ModsChanged {
-                changes,
-                removed_manual,
-            } => {
-                write!(f, "{}", changes.orders())?;
-                if *removed_manual {
-                    write!(
-                        f,
-                        "Manual folders were removed; only enabled launcher mods are used."
-                    )?;
-                }
-                Ok(())
+        if let Some(changes) = &self.changes {
+            write!(f, "{}", changes.orders())?;
+            if self.removed_manual {
+                write!(
+                    f,
+                    "Manual folders were removed; only enabled launcher mods are used."
+                )?;
             }
-            Self::ManualSourcesRemoved => write!(
+        } else if self.removed_manual {
+            write!(
                 f,
                 "Mod selection is now controlled by checkboxes in the enabled mod list."
-            ),
+            )?;
         }
+        Ok(())
     }
 }
 
 #[derive(Default)]
 pub(super) struct Editor {
     names: BTreeMap<PathBuf, String>,
-    notice: Option<ScanNotice>,
+    notice: ScanNotice,
 }
 
 impl Editor {
     pub(super) fn reset(&mut self) {
         self.names.clear();
-        self.notice = None;
+        self.notice = ScanNotice::default();
     }
 
     pub(super) fn scanned(
@@ -71,19 +66,15 @@ impl Editor {
         changes: Option<source_mods::ModListMismatch>,
         removed_manual: bool,
     ) {
-        self.reset();
-        self.notice = match changes {
-            Some(changes) => Some(ScanNotice::ModsChanged {
-                changes,
-                removed_manual,
-            }),
-            None if removed_manual => Some(ScanNotice::ManualSourcesRemoved),
-            None => None,
+        self.names.clear();
+        self.notice = ScanNotice {
+            changes,
+            removed_manual,
         };
     }
 
-    pub(super) fn notice(&self) -> Option<&str> {
-        self.notice.as_ref().map(ScanNotice::message)
+    pub(super) const fn notice(&self) -> Option<&'static str> {
+        self.notice.message()
     }
 
     pub(super) fn show(
@@ -110,44 +101,29 @@ impl Editor {
             ui.weak("No UI mods listed. Scan assets to read the launcher's enabled mods.");
         }
         ui.small("Later rows override matching files in earlier rows. Save the profile to keep your selection.");
-        if let Some(notice) = &self.notice {
-            ui.colored_label(ui.visuals().warn_fg_color, notice.message())
+        if let Some(message) = self.notice() {
+            ui.colored_label(ui.visuals().warn_fg_color, message)
                 .on_hover_ui(|ui| {
-                    ui.label(notice.to_string());
+                    ui.label(self.notice.to_string());
                 });
         }
         ui.collapsing("User data directory", |ui| {
             ui.horizontal(|ui| {
-                let mut directory = profile
+                let directory = profile
                     .auto_source_mods
                     .as_ref()
-                    .and_then(|settings| settings.user_data_dir.as_deref())
-                    .map_or_default(Path::to_string_lossy);
-                if ui
-                    .add(
-                        egui::TextEdit::singleline(&mut directory)
-                            .hint_text("Auto")
-                            .desired_width(540.0),
-                    )
-                    .changed()
+                    .and_then(|settings| settings.user_data_dir.as_deref());
+                if let Some(PathEdit(directory)) =
+                    picker.optional_field(ui, Target::UserData, directory, |ui, edit| {
+                        ui.add(edit.hint_text("Auto").desired_width(540.0))
+                    })
                 {
-                    let directory =
-                        (!directory.is_empty()).then(|| PathBuf::from(directory.as_ref()));
                     profile
                         .auto_source_mods
                         .get_or_insert_default()
                         .user_data_dir = directory;
                     changed = true;
                 }
-                picker.button(
-                    ui,
-                    Target::UserData,
-                    profile
-                        .auto_source_mods
-                        .as_ref()
-                        .and_then(|settings| settings.user_data_dir.as_deref())
-                        .unwrap_or_else(|| Path::new("")),
-                );
             });
             ui.small("Uses dlc_load.json from the launcher; it may reflect a previous launch.");
         });

@@ -113,10 +113,9 @@ fn realplksr_build_matches_reference_pixels_and_cached_build_needs_no_model() {
         textures: options(),
         ..Default::default()
     };
-    let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(report.textures, 1);
     assert_eq!(report.cache_hits, 0);
     let png = output.join("gfx/test_scaled.png");
@@ -229,7 +228,7 @@ fn realplksr_preview_build_and_cache_produce_identical_outputs() {
     let fixture = fixture();
     let root = fixture.0.join("game");
     let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     let profile = Profile {
         scale: Scale::try_from(1.5).unwrap(),
@@ -242,7 +241,7 @@ fn realplksr_preview_build_and_cache_produce_identical_outputs() {
             .unwrap();
     assert_eq!(candidates[1].1, preview);
     let output = fixture.0.join("mod");
-    let build = || compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let build = || build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(build().cache_hits, 0);
     let png = output.join(textures::output_name(&asset.path));
     assert_eq!(textures::decode(&fs::read(&png).unwrap()).unwrap(), preview);
@@ -254,7 +253,7 @@ fn realplksr_preview_build_and_cache_produce_identical_outputs() {
         },
         ..profile.clone()
     };
-    let report = compiler::build(&plan, &classical, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &classical, &output).unwrap();
     assert_eq!(report.cache_hits, 0);
     assert_eq!(build().cache_hits, plan.textures.len());
     assert_eq!(textures::decode(&fs::read(&png).unwrap()).unwrap(), preview);
@@ -296,7 +295,7 @@ fn realplksr_streaming_session_reuses_buffers_for_new_sources() {
     let fixture = fixture();
     let root = fixture.0.join("game");
     let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let asset = &plan.textures[0];
     let profile = Profile {
         scale: Scale::try_from(1.5).unwrap(),
@@ -367,8 +366,7 @@ fn realplksr_parallel_build_matches_single_worker_and_reuses_cache() {
     }
     gfx.push('}');
     write(&root, "interface/neural.gfx", &gfx);
-    let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let profile = Profile {
         scale: Scale::try_from(1.5).unwrap(),
         textures: options(),
@@ -383,7 +381,7 @@ fn realplksr_parallel_build_matches_single_worker_and_reuses_cache() {
         let output = fixture.0.join(format!("threads-{threads}/mod"));
         pool.install(|| {
             let started = std::time::Instant::now();
-            let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+            let report = build_mod(&plan, &profile, &output).unwrap();
             eprintln!(
                 "Neural build with {threads} workers: {:?}",
                 started.elapsed()
@@ -395,7 +393,7 @@ fn realplksr_parallel_build_matches_single_worker_and_reuses_cache() {
             } else {
                 expected = Some(manifest);
             }
-            let cached = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+            let cached = build_mod(&plan, &profile, &output).unwrap();
             assert_eq!(cached.cache_hits, plan.textures.len());
         });
     }

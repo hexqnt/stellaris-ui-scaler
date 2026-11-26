@@ -2,7 +2,6 @@ use std::{
     ops::Range,
     path::PathBuf,
     sync::{Arc, atomic::AtomicUsize, mpsc},
-    time::Duration,
 };
 
 use anyhow::{Context, Result, anyhow};
@@ -13,6 +12,7 @@ use rayon::prelude::*;
 use crate::{
     compiler::{BuildPlan, Control},
     config::Profile,
+    gui::task::Task,
 };
 
 use super::{
@@ -68,8 +68,7 @@ pub(super) struct SearchResult {
 }
 
 pub(super) struct Job {
-    receiver: mpsc::Receiver<Result<Completed, String>>,
-    pub control: Control,
+    pub(super) task: Task<Result<Completed, String>>,
     pub progress: Progress,
 }
 
@@ -79,26 +78,16 @@ impl Job {
         progress: Progress,
         work: impl FnOnce(&Control) -> Result<Completed> + Send + 'static,
     ) -> Self {
-        let (sender, receiver) = mpsc::channel();
-        let control = Control::default();
-        let worker_control = control.clone();
-        let ctx = ctx.clone();
-        std::thread::spawn(move || {
-            let result = (|| {
-                worker_control.check()?;
-                let completed = work(&worker_control)?;
-                worker_control.check()?;
+        let task = Task::spawn(ctx, move |control, _| {
+            (|| {
+                control.check()?;
+                let completed = work(&control)?;
+                control.check()?;
                 Ok(completed)
             })()
-            .map_err(|error: anyhow::Error| format!("{error:#}"));
-            let _ = sender.send(result);
-            ctx.request_repaint();
+            .map_err(|error: anyhow::Error| format!("{error:#}"))
         });
-        Self {
-            receiver,
-            control,
-            progress,
-        }
+        Self { task, progress }
     }
 
     pub fn search(
@@ -124,7 +113,8 @@ impl Job {
             };
             let ranked: Arc<[Hit]> = index
                 .search(&query, control, |asset| {
-                    plan.textures[asset].policy(&profile).scale
+                    let asset = &plan.textures[asset];
+                    profile.texture_scale(&asset.path, asset.category)
                 })?
                 .into();
             let page = thumbnails(&ranked[..ranked.len().min(PAGE_SIZE)], &plan, control)?;
@@ -152,22 +142,13 @@ impl Job {
     }
 
     pub fn poll(&self, ctx: &egui::Context) -> Option<Result<Completed, String>> {
-        match self.receiver.try_recv() {
+        match self.task.try_recv(ctx) {
             Ok(result) => Some(result),
-            Err(mpsc::TryRecvError::Empty) => {
-                ctx.request_repaint_after(Duration::from_millis(100));
-                None
-            }
+            Err(mpsc::TryRecvError::Empty) => None,
             Err(mpsc::TryRecvError::Disconnected) => {
                 Some(Err("Image search worker stopped unexpectedly".into()))
             }
         }
-    }
-}
-
-impl Drop for Job {
-    fn drop(&mut self) {
-        self.control.cancel();
     }
 }
 

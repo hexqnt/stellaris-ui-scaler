@@ -1,237 +1,15 @@
+mod processor;
 mod realplksr;
 mod resample;
 
-use std::{num::NonZeroUsize, path::Path, sync::Mutex};
+use std::path::Path;
 
-use anyhow::{Context, Result, ensure};
-use image::{DynamicImage, GenericImage, GenericImageView, ImageDecoder, RgbaImage, SubImage};
+use anyhow::{Result, ensure};
+use image::{DynamicImage, GenericImageView, ImageDecoder, RgbaImage};
 
 use crate::config::{Algorithm, Scale, TextureOptions};
 
-use realplksr::{Boundary, Model};
-use resample::Resampler;
-
-pub(crate) struct Processor {
-    neural: Mutex<Option<Model>>,
-    neural_threads: NonZeroUsize,
-}
-
-impl Processor {
-    pub(crate) const fn with_neural_threads(neural_threads: NonZeroUsize) -> Self {
-        Self {
-            neural: Mutex::new(None),
-            neural_threads,
-        }
-    }
-
-    pub(crate) fn set_neural_threads(&mut self, threads: NonZeroUsize) {
-        if self.neural_threads != threads {
-            *self = Self::with_neural_threads(threads);
-        }
-    }
-
-    fn resize(
-        &self,
-        source: SubImage<&RgbaImage>,
-        target: (u32, u32),
-        options: &TextureOptions,
-        boundary: Boundary,
-        check: &dyn Fn() -> Result<()>,
-    ) -> Result<RgbaImage> {
-        check()?;
-        check_dimensions(source.width(), source.height())?;
-        check_dimensions(target.0, target.1)?;
-        if options.algorithm != Algorithm::RealPlksr2x {
-            return Ok(Resampler::new(source.dimensions(), target, options)?.resize(source));
-        }
-        let finish = TextureOptions {
-            algorithm: Algorithm::Lanczos3,
-            ..*options
-        };
-        if target.0 <= source.width() && target.1 <= source.height() {
-            return Ok(Resampler::new(source.dimensions(), target, &finish)?.resize(source));
-        }
-        check_dimensions(source.width() * 2, source.height() * 2)?;
-        if source.pixels().all(|(_, _, pixel)| pixel[3] == 0) {
-            return Ok(RgbaImage::new(target.0, target.1));
-        }
-        let native = {
-            // Одна сессия и её входной буфер переиспользуются; сборка выделяет отдельный Processor каждой параллельной задаче.
-            let mut model = self
-                .neural
-                .lock()
-                .map_err(|_| anyhow::anyhow!("RealPLKSR session lock poisoned"))?;
-            check()?;
-            if model.is_none() {
-                *model = Some(Model::load(self.neural_threads)?);
-            }
-            model
-                .as_mut()
-                .context("Missing RealPLKSR session")?
-                .upscale(source, boundary, check)?
-        };
-        check()?;
-        resample::resize(&native, target.0, target.1, &finish)
-    }
-}
-
-impl Processor {
-    pub(crate) fn process(
-        &self,
-        source: &RgbaImage,
-        scale: Scale,
-        frames: u32,
-        options: &TextureOptions,
-        check: &dyn Fn() -> Result<()>,
-    ) -> Result<RgbaImage> {
-        let (width, height) = target_dimensions(source.width(), source.height(), frames, scale)?;
-        // Кадры имеют целую ширину; остаток справа не входит в используемую область атласа.
-        let source = source.view(0, 0, source.width() / frames * frames, source.height());
-        let parts = if options.independent_frames || options.algorithm == Algorithm::RealPlksr2x {
-            frames
-        } else {
-            1
-        };
-        self.resize_frames(source, width, height, parts, options, check)
-    }
-
-    fn resize_frames(
-        &self,
-        source: SubImage<&RgbaImage>,
-        width: u32,
-        height: u32,
-        frames: u32,
-        options: &TextureOptions,
-        check: &dyn Fn() -> Result<()>,
-    ) -> Result<RgbaImage> {
-        let frame_width = source.width() / frames;
-        let target_width = width / frames;
-        let resampler = (options.algorithm != Algorithm::RealPlksr2x)
-            .then(|| {
-                Resampler::new(
-                    (frame_width, source.height()),
-                    (target_width, height),
-                    options,
-                )
-            })
-            .transpose()?;
-        let resize = |input| {
-            check()?;
-            resampler.as_ref().map_or_else(
-                || {
-                    self.resize(
-                        input,
-                        (target_width, height),
-                        options,
-                        Boundary::Image,
-                        check,
-                    )
-                },
-                |filter| Ok(filter.resize(input)),
-            )
-        };
-        if frames == 1 {
-            return resize(source);
-        }
-        let mut result = RgbaImage::new(width, height);
-        for frame in 0..frames {
-            let input = source.view(frame * frame_width, 0, frame_width, source.height());
-            let output = resize(input)?;
-            result.copy_from(&output, frame * target_width, 0)?;
-        }
-        Ok(result)
-    }
-}
-
-impl Processor {
-    pub(crate) fn periodic(
-        &self,
-        source: &RgbaImage,
-        scale: Scale,
-        frames: u32,
-        options: &TextureOptions,
-        check: &dyn Fn() -> Result<()>,
-    ) -> Result<RgbaImage> {
-        let (width, target_height) =
-            target_dimensions(source.width(), source.height(), frames, scale)?;
-        let parts = if options.independent_frames || options.algorithm == Algorithm::RealPlksr2x {
-            frames
-        } else {
-            1
-        };
-        let source_width = (source.width() / frames) * frames / parts;
-        let target_width = width / parts;
-        if options.algorithm == Algorithm::RealPlksr2x && scale.get() <= 1.0 {
-            let options = TextureOptions {
-                algorithm: Algorithm::Lanczos3,
-                ..*options
-            };
-            return self.periodic(source, scale, frames, &options, check);
-        }
-        if options.algorithm == Algorithm::RealPlksr2x {
-            let mut output = RgbaImage::new(width, target_height);
-            let options = TextureOptions {
-                sharpening: 0.0,
-                ..*options
-            };
-            for frame in 0..parts {
-                check()?;
-                let input = source.view(frame * source_width, 0, source_width, source.height());
-                let result = self.resize(
-                    input,
-                    (target_width, target_height),
-                    &options,
-                    Boundary::Periodic,
-                    check,
-                )?;
-                output.copy_from(&result, frame * target_width, 0)?;
-            }
-            return Ok(output);
-        }
-        let padding = 8_u32;
-        let scaled_padding = scale.dimension(padding);
-        check_dimensions(source_width + padding * 2, source.height() + padding * 2)?;
-        check_dimensions(
-            target_width + scaled_padding * 2,
-            target_height + scaled_padding * 2,
-        )?;
-        let mut output = RgbaImage::new(width, target_height);
-        let mut options = *options;
-        options.sharpening = 0.0;
-        let resampler = Resampler::new(
-            (source_width + 2 * padding, source.height() + 2 * padding),
-            (
-                target_width + 2 * scaled_padding,
-                target_height + 2 * scaled_padding,
-            ),
-            &options,
-        )?;
-        for frame in 0..parts {
-            check()?;
-            let padded = RgbaImage::from_fn(
-                source_width + padding * 2,
-                source.height() + padding * 2,
-                |x, y| {
-                    let x = (x + source_width * padding - padding) % source_width;
-                    let y = (y + source.height() * padding - padding) % source.height();
-                    *source.get_pixel(frame * source_width + x, y)
-                },
-            );
-            let result = resampler.resize(padded.view(0, 0, padded.width(), padded.height()));
-            let result = result.view(scaled_padding, scaled_padding, target_width, target_height);
-            output.copy_from(&*result, frame * target_width, 0)?;
-        }
-        Ok(output)
-    }
-}
-
-impl Default for Processor {
-    fn default() -> Self {
-        Self::with_neural_threads(
-            crate::parallelism::CpuBudget::current().per_task(NonZeroUsize::MIN),
-        )
-    }
-}
+pub(crate) use processor::{Boundary, PERIODIC_PADDING, Processor};
 
 pub(crate) fn cache_identity(algorithm: Algorithm) -> Option<(&'static str, &'static [u8; 32])> {
     (algorithm == Algorithm::RealPlksr2x).then_some((realplksr::CACHE_ID, &realplksr::MODEL_SHA256))
@@ -354,7 +132,7 @@ pub fn process(
     frames: u32,
     options: &TextureOptions,
 ) -> Result<RgbaImage> {
-    Processor::default().process(source, scale, frames, options, &|| Ok(()))
+    Processor::default().process(source, scale, frames, options, Boundary::Image, &|| Ok(()))
 }
 
 /// # Errors
@@ -376,10 +154,10 @@ pub fn compact_background(
     check_dimensions(total_width, height)?;
     Processor::default().resize_frames(
         source.view(0, 0, source.width(), source.height()),
-        total_width,
-        height,
+        (total_width, height),
         3,
         options,
+        Boundary::Image,
         &|| Ok(()),
     )
 }
@@ -412,7 +190,9 @@ pub fn periodic(
     frames: u32,
     options: &TextureOptions,
 ) -> Result<RgbaImage> {
-    Processor::default().periodic(source, scale, frames, options, &|| Ok(()))
+    Processor::default().process(source, scale, frames, options, Boundary::Periodic, &|| {
+        Ok(())
+    })
 }
 
 fn raster_format(bytes: &[u8]) -> image::ImageFormat {

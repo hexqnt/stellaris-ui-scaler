@@ -21,7 +21,7 @@ fn trade_view_wide_mode_scales_engine_width_and_resolution_threshold() {
     }";
     write(&root, gui_path, source);
     write(&root, defines_path, defines);
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [0.5, 1.0, 1.3846, 1.86921, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -29,7 +29,7 @@ fn trade_view_wide_mode_scales_engine_width_and_resolution_threshold() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gui = fs::read_to_string(output.join(gui_path)).unwrap_or_else(|_| source.into());
         let built_defines =
             fs::read_to_string(output.join(defines_path)).unwrap_or_else(|_| defines.into());
@@ -118,7 +118,7 @@ fn music_panel_background_scales_dds_with_slice_borders() {
             background = { name = "background" quadTextureSprite = "GFX_topbar_background_cutoff" }
         } }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [1.0, 1.3846, 1.86921, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -126,7 +126,7 @@ fn music_panel_background_scales_dds_with_slice_borders() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let bytes = fs::read(output.join(path)).unwrap();
         assert!(bytes.starts_with(b"DDS "));
         let image = textures::decode(&bytes).unwrap();
@@ -192,7 +192,7 @@ fn navbar_background_compensates_fixed_engine_position() {
         "interface/main.gui",
         r#"containerWindowType = { name = "maingui_left_bar_buttons" position = { x = -225 y = 35 } size = { width = 250 height = 690 } containerWindowType = { name = "background" position = { x = 5 y = 5 } size = { width = 320 height = 610 } background = { name = "navbar_bg" spriteType = "GFX_navbar_bg_wide" } } }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [0.5, 1.0, 1.3846, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -200,7 +200,7 @@ fn navbar_background_compensates_fixed_engine_position() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let built = image::open(output.join(textures::output_name(path))).unwrap();
         assert_eq!(built.width(), scale.dimension(32));
         assert_eq!(built.height(), scale.dimension(61));
@@ -262,7 +262,7 @@ fn trait_buttons_compensate_engine_positions() {
         containerWindowType = { name = "unrelated" containerWindowType = { name = "bottom_container" position = { x = 3 y = 4 } } }
     }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let output = fixture.0.join("mod");
     for factor in [0.5, 1.0, 1.3846, 2.0] {
         let scale = Scale::try_from(factor).unwrap();
@@ -270,7 +270,7 @@ fn trait_buttons_compensate_engine_positions() {
             scale,
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gui = fs::read_to_string(output.join("interface/assign_trait_view.gui"))
             .unwrap_or_else(|_| {
                 fs::read_to_string(root.join("interface/assign_trait_view.gui")).unwrap()

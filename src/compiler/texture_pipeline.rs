@@ -18,12 +18,24 @@ const BATCH_BYTES: u64 = 256 * 1024 * 1024;
 // Ограничиваем копии весов и рабочие арены ONNX; бюджет буферов изображений считается отдельно.
 const MAX_NEURAL_TASKS: usize = 4;
 
-fn working_bytes(asset: &TextureAsset, policy: TexturePolicy) -> Result<u64> {
-    let scale = policy.scale;
+type Work<'a> = (&'a TextureAsset, TexturePolicy);
+
+fn resolve_work<'a>(assets: &'a [TextureAsset], profile: &Profile) -> Vec<Work<'a>> {
+    assets
+        .iter()
+        .map(|asset| (asset, asset.policy(profile)))
+        .collect()
+}
+
+fn working_bytes(asset: &TextureAsset, scale: crate::config::Scale, neural: bool) -> Result<u64> {
     let (width, height) = asset.target_dimensions(scale)?;
-    let source_padding = if asset.tiled { 16 } else { 0 };
+    let source_padding = if asset.tiled {
+        2 * textures::PERIODIC_PADDING
+    } else {
+        0
+    };
     let target_padding = if asset.tiled {
-        2 * scale.dimension(8)
+        2 * scale.dimension(textures::PERIODIC_PADDING)
     } else {
         0
     };
@@ -32,27 +44,21 @@ fn working_bytes(asset: &TextureAsset, policy: TexturePolicy) -> Result<u64> {
     let tw = u64::from(width + target_padding);
     let th = u64::from(height + target_padding);
     let mut pixels = (sw * sh).max(tw * sh).max(tw * th);
-    if policy.uses_neural() {
+    if neural {
         // Нативный результат сети может быть больше конечного изображения при масштабе меньше двух.
         pixels = pixels.max(sw * sh * 4);
     }
     Ok(pixels * 64)
 }
 
-fn batch_len(
-    assets: &[TextureAsset],
-    profile: &Profile,
-    cpu_threads: usize,
-    neural_threads: NonZeroUsize,
-) -> Result<usize> {
+fn batch_len(work: &[Work<'_>], cpu_threads: usize, neural_threads: NonZeroUsize) -> Result<usize> {
     let mut count = 0;
     let mut bytes = 0;
     let mut used_threads = 0;
     let mut neural_tasks = 0;
-    for asset in assets.iter().take(cpu_threads) {
-        let policy = asset.policy(profile);
-        let estimate = working_bytes(asset, policy)?;
+    for &(asset, policy) in work.iter().take(cpu_threads) {
         let neural = policy.uses_neural();
+        let estimate = working_bytes(asset, policy.scale, neural)?;
         let required_threads = if neural { neural_threads.get() } else { 1 };
         if count > 0
             && (bytes + estimate > BATCH_BYTES
@@ -82,10 +88,10 @@ pub(super) fn compile(
     }
     let budget = CpuBudget::current();
     let worker_count = budget.threads().min(plan.textures.len());
-    let neural_count = plan
-        .textures
+    let work = resolve_work(&plan.textures, profile);
+    let neural_count = work
         .iter()
-        .filter(|asset| asset.policy(profile).uses_neural())
+        .filter(|(_, policy)| policy.uses_neural())
         .take(MAX_NEURAL_TASKS.min(worker_count))
         .count();
     let neural_threads =
@@ -99,38 +105,35 @@ pub(super) fn compile(
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(worker_count)
         .build()?;
-    let mut remaining = plan.textures.as_slice();
+    let mut remaining = work.as_slice();
     let mut completed = 0;
     let mut cache_hits = 0;
+    let mut pending = Vec::with_capacity(worker_count);
     while !remaining.is_empty() {
         control.check()?;
-        let count = batch_len(remaining, profile, budget.threads(), neural_threads)?;
+        let count = batch_len(remaining, budget.threads(), neural_threads)?;
         let (batch, rest) = remaining.split_at(count);
         let mut neural = neural_processors.iter();
         // Чтение последовательно; готовые результаты записываются рабочими потоками сразу.
-        let pending = batch
-            .iter()
-            .enumerate()
-            .map(|(index, asset)| {
-                control.check()?;
-                progress(Progress {
-                    stage: ProgressStage::Textures,
-                    completed: completed + index,
-                    total: plan.textures.len(),
-                });
-                control.check()?;
-                let texture = cache.prepare(&plan.game, asset, profile)?;
-                let processor = if texture.uses_neural() {
-                    neural.next().context("Batch exceeds neural worker limit")?
-                } else {
-                    &regular
-                };
-                Ok((asset, texture, processor))
-            })
-            .collect::<Result<Vec<_>>>()?;
+        for (index, &(asset, policy)) in batch.iter().enumerate() {
+            control.check()?;
+            progress(Progress::new(
+                ProgressStage::Textures,
+                completed + index,
+                plan.textures.len(),
+            ));
+            control.check()?;
+            let texture = cache.prepare(&plan.game, asset, policy, profile.reproduction)?;
+            let processor = if policy.uses_neural() {
+                neural.next().context("Batch exceeds neural worker limit")?
+            } else {
+                &regular
+            };
+            pending.push((asset, texture, processor));
+        }
         cache_hits += pool.install(|| {
             pending
-                .into_par_iter()
+                .par_drain(..)
                 .map(|(asset, texture, processor)| -> Result<usize> {
                     control.check()?;
                     let result = texture.process(processor, control)?;
@@ -156,6 +159,15 @@ mod tests {
     use super::*;
     use crate::config::{Algorithm, Category, Scale};
 
+    fn count(
+        assets: &[TextureAsset],
+        profile: &Profile,
+        threads: usize,
+        neural_threads: NonZeroUsize,
+    ) -> Result<usize> {
+        batch_len(&resolve_work(assets, profile), threads, neural_threads)
+    }
+
     #[test]
     fn batches_bound_concurrency_and_isolate_large_images() {
         let profile = Profile {
@@ -172,14 +184,14 @@ mod tests {
         };
         let mut assets = vec![asset; 5];
         let threads = NonZeroUsize::MIN;
-        assert_eq!(batch_len(&assets, &profile, 2, threads).unwrap(), 2);
-        assert_eq!(batch_len(&assets, &profile, 8, threads).unwrap(), 5);
+        assert_eq!(count(&assets, &profile, 2, threads).unwrap(), 2);
+        assert_eq!(count(&assets, &profile, 8, threads).unwrap(), 5);
         assets[1].width = 2048;
         assets[1].height = 2048;
-        assert_eq!(batch_len(&assets, &profile, 8, threads).unwrap(), 1);
-        assert_eq!(batch_len(&assets[1..], &profile, 8, threads).unwrap(), 1);
+        assert_eq!(count(&assets, &profile, 8, threads).unwrap(), 1);
+        assert_eq!(count(&assets[1..], &profile, 8, threads).unwrap(), 1);
         assets[0].frames = 0;
-        assert!(batch_len(&assets, &profile, 8, threads).is_err());
+        assert!(count(&assets, &profile, 8, threads).is_err());
     }
 
     #[test]
@@ -198,12 +210,9 @@ mod tests {
             tiled: false,
         };
         let mut assets = vec![asset; 6];
-        assert_eq!(
-            batch_len(&assets, &profile, 8, NonZeroUsize::MIN).unwrap(),
-            4
-        );
+        assert_eq!(count(&assets, &profile, 8, NonZeroUsize::MIN).unwrap(), 4);
         let threads = NonZeroUsize::new(2).unwrap();
-        assert_eq!(batch_len(&assets, &profile, 6, threads).unwrap(), 3);
+        assert_eq!(count(&assets, &profile, 6, threads).unwrap(), 3);
         // Один обычный фильтр оставляет место только двум нейросетевым задачам по два CPU.
         profile.assets.insert(
             "gfx/regular.png".into(),
@@ -213,8 +222,8 @@ mod tests {
             },
         );
         assets[0].path = "gfx/regular.png".into();
-        assert_eq!(batch_len(&assets, &profile, 6, threads).unwrap(), 3);
+        assert_eq!(count(&assets, &profile, 6, threads).unwrap(), 3);
         profile.scale = Scale::try_from(0.5).unwrap();
-        assert_eq!(batch_len(&assets, &profile, 6, threads).unwrap(), 6);
+        assert_eq!(count(&assets, &profile, 6, threads).unwrap(), 6);
     }
 }

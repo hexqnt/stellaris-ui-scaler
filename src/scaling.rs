@@ -8,7 +8,7 @@ use crate::{
     pdx::{Document, Edits, Node, Value},
 };
 
-const BLOCKS: &[&str] = &[
+const GUI_BLOCKS: &[&str] = &[
     "position",
     "show_position",
     "hide_position",
@@ -19,6 +19,17 @@ const BLOCKS: &[&str] = &[
     "minsize",
     "offset",
     "text_offset",
+];
+const GFX_BLOCKS: &[&str] = &[
+    "size",
+    "bg_position",
+    "bg_size",
+    "symbol_position",
+    "symbol_size",
+    "hitbox_margin",
+    "mask_size",
+    "mask_offset",
+    "position",
 ];
 const SCALARS: &[&str] = &[
     "maxwidth",
@@ -99,10 +110,6 @@ pub fn geometry(
     edits.apply(source)
 }
 
-#[allow(
-    clippy::too_many_lines,
-    reason = "Контекст размерностей передаётся одним рекурсивным проходом"
-)]
 pub(crate) fn geometry_edits(
     doc: &Document<'_>,
     scale: Scale,
@@ -145,30 +152,14 @@ pub(crate) fn geometry_edits(
             let in_keys =
                 |candidates: &[&str]| candidates.iter().any(|candidate| is_key(candidate));
             let res = scope.resolution || is_key("if_scaled_resolution");
-            let pixel = if context.gfx {
-                in_keys(&[
-                    "size",
-                    "bg_position",
-                    "bg_size",
-                    "symbol_position",
-                    "symbol_size",
-                    "hitbox_margin",
-                    "mask_size",
-                    "mask_offset",
-                    "position",
-                ])
-            } else {
-                in_keys(BLOCKS)
-            };
-            if node.atom().is_some() {
+            if let Some(atom) = node.atom() {
                 let dimension = scope.geometry && in_keys(&["x", "y", "width", "height"]);
                 let scalar = !context.gfx
                     && in_keys(SCALARS)
                     && !(res && in_keys(&["min_height", "max_height", "min_width", "max_width"]));
-                let variable =
-                    !context.gfx && key.starts_with('@') && node.parse_atom::<i64>().is_some();
+                let variable = !context.gfx && key.starts_with('@') && atom.parse::<i64>().is_ok();
                 if dimension || scalar || variable || (context.gfx && scope.pie && is_key("size")) {
-                    if node.atom().is_some_and(|s| s.starts_with("@[")) {
+                    if atom.starts_with("@[") {
                         diagnostics.push(Diagnostic {
                             path: context.path.into(),
                             span: Some(node.span.clone()),
@@ -179,12 +170,13 @@ pub(crate) fn geometry_edits(
                     }
                     scaled_atom(node, context.scale, edits);
                 }
+                continue;
             }
             visit(
                 node.children(),
                 context,
                 Scope {
-                    geometry: pixel,
+                    geometry: in_keys(if context.gfx { GFX_BLOCKS } else { GUI_BLOCKS }),
                     resolution: res,
                     pie: is_key("piecharttype"),
                 },
@@ -248,9 +240,9 @@ fn widget_nodes(
     for n in nodes {
         widget_nodes(n.children(), n.named(), scale, needs_scale, edits);
         if n.key == Some("instantTextBoxType") && n.field("maxWidth").is_none() {
-            edits.insert(
+            edits.insert_text(
                 n,
-                &format!("\n\t\tmaxWidth = {:.0}\n\t", scale.pixels(200.0)),
+                format!("\n\t\tmaxWidth = {:.0}\n\t", scale.pixels(200.0)),
             );
         }
         if !n.key.is_some_and(|k| {
@@ -284,7 +276,7 @@ fn widget_nodes(
                 edits.atom(sc, format!("{:.4}", value * scale.get()));
             }
         } else {
-            edits.insert(n, &format!("\n\t\tscale = {:.4}\n\t", scale.get()));
+            edits.insert_text(n, format!("\n\t\tscale = {:.4}\n\t", scale.get()));
         }
     }
 }

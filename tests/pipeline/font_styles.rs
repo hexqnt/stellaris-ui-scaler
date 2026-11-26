@@ -87,7 +87,7 @@ fn localized_bitmap_overrides_scale_automatically_without_changing_the_typeface(
             source_mods: sources.clone(),
             ..Profile::default()
         };
-        compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gfx = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
         let doc = Document::parse(&gfx).unwrap();
         for (name, stem, expected, face) in [
@@ -151,7 +151,7 @@ fn localized_bitmap_overrides_respect_group_scale_and_explicit_ttf_replacement()
         },
     );
     let output = fixture.0.join("compiled");
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let metrics =
         fs::read_to_string(output.join("gfx/fonts/ui_scaler/cg_16b/3A_small.fnt")).unwrap();
     assert_eq!(fonts::bitmap::Font::parse(&metrics).unwrap().size, 20.0);
@@ -162,7 +162,7 @@ fn localized_bitmap_overrides_respect_group_scale_and_explicit_ttf_replacement()
             ..Default::default()
         },
     );
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert!(
         !output
             .join("gfx/fonts/ui_scaler/cg_16b/3A_small.fnt")
@@ -194,7 +194,7 @@ fn overall_font_styles_handle_localized_bitmaps_and_preserve_assigned_mod_ttf() 
     let output = fixture.0.join("compiled");
     for mode in [FontMode::Automatic, FontMode::TrueType, FontMode::Original] {
         profile.apply_font_mode(mode);
-        compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         let gfx = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
         let doc = Document::parse(&gfx).unwrap();
         for (name, family, size) in [
@@ -266,7 +266,7 @@ fn individual_font_rules_can_override_the_overall_style() {
             ..Default::default()
         },
     );
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let gfx = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
     let doc = Document::parse(&gfx).unwrap();
     assert!(
@@ -287,7 +287,7 @@ fn individual_font_rules_can_override_the_overall_style() {
             ..Default::default()
         },
     );
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let gfx = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
     let doc = Document::parse(&gfx).unwrap();
     assert!(

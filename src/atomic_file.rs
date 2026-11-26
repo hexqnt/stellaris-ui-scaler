@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io,
+    io::{self, Write},
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
@@ -13,8 +13,28 @@ pub struct AtomicFile<'a> {
     destination: &'a Path,
 }
 
+#[derive(Clone, Copy)]
+pub enum Durability {
+    Buffered,
+    Synced,
+}
+
 impl<'a> AtomicFile<'a> {
     pub fn prepare(
+        destination: &'a Path,
+        bytes: &[u8],
+        durability: Durability,
+    ) -> io::Result<Self> {
+        Self::prepare_with(destination, |file| {
+            file.write_all(bytes)?;
+            if matches!(durability, Durability::Synced) {
+                file.sync_all()?;
+            }
+            Ok(())
+        })
+    }
+
+    fn prepare_with(
         destination: &'a Path,
         write: impl FnOnce(&mut File) -> io::Result<()>,
     ) -> io::Result<Self> {
@@ -63,7 +83,6 @@ impl Drop for AtomicFile<'_> {
 mod tests {
     use super::*;
     use crate::test_support::Temp;
-    use std::io::Write;
 
     #[test]
     fn preparation_preserves_destination_and_cleans_up_on_every_exit() {
@@ -71,7 +90,7 @@ mod tests {
         let target = directory.0.join("descriptor.mod");
         fs::write(&target, b"original").unwrap();
 
-        let pending = AtomicFile::prepare(&target, |file| file.write_all(b"replacement")).unwrap();
+        let pending = AtomicFile::prepare(&target, b"replacement", Durability::Buffered).unwrap();
         assert_eq!(fs::read(&target).unwrap(), b"original");
         drop(pending);
         assert_eq!(
@@ -79,7 +98,7 @@ mod tests {
             std::slice::from_ref(&target)
         );
 
-        let result = AtomicFile::prepare(&target, |file| {
+        let result = AtomicFile::prepare_with(&target, |file| {
             file.write_all(b"partial")?;
             Err(io::Error::other("Write failed"))
         });
@@ -93,7 +112,7 @@ mod tests {
 
         let blocked = directory.0.join("blocked");
         fs::create_dir(&blocked).unwrap();
-        let pending = AtomicFile::prepare(&blocked, |file| file.write_all(b"replacement")).unwrap();
+        let pending = AtomicFile::prepare(&blocked, b"replacement", Durability::Buffered).unwrap();
         assert!(pending.publish().is_err());
         assert!(blocked.is_dir());
         assert_eq!(
@@ -101,7 +120,7 @@ mod tests {
             std::slice::from_ref(&target)
         );
 
-        AtomicFile::prepare(&target, |file| file.write_all(b"replacement"))
+        AtomicFile::prepare(&target, b"replacement", Durability::Buffered)
             .unwrap()
             .publish()
             .unwrap();

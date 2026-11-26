@@ -40,7 +40,7 @@ fn source_mod_layout_is_scaled_once_and_vanilla_has_no_fitted_offsets() {
                 source_mods: source_mods.clone(),
                 ..Profile::default()
             };
-            compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+            build_mod(&plan, &profile, &output).unwrap();
             let gui = fs::read_to_string(output.join(path))
                 .unwrap_or_else(|_| plan.game.text(path).unwrap());
             assert_eq!(
@@ -121,7 +121,7 @@ fn source_mod_priority_applies_before_sprite_texture_and_font_analysis() {
         source_mods,
         ..Profile::default()
     };
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert!(report.validation.errors.is_empty());
     let image = image::open(output.join("gfx/mod_scaled.png"))
         .unwrap()
@@ -148,16 +148,7 @@ fn source_changes_require_rescan_and_outputs_cannot_overwrite_source_mods() {
     let control = Control::default();
     let source_mods = vec![source_mod.clone()];
     let plan = compiler::plan_with_mods(&game, &source_mods, &control, &mut |_| {}).unwrap();
-    assert!(
-        compiler::build(
-            &plan,
-            &Profile::default(),
-            &fixture.0.join("output"),
-            &control,
-            &mut |_| {}
-        )
-        .is_err()
-    );
+    assert!(build_mod(&plan, &Profile::default(), &fixture.0.join("output")).is_err());
     let profile = Profile {
         source_mods,
         ..Profile::default()
@@ -169,7 +160,7 @@ fn source_changes_require_rescan_and_outputs_cannot_overwrite_source_mods() {
         profile.source_mods
     );
     for output in [&source_mod, &source_mod.join("output")] {
-        assert!(compiler::build(&plan, &profile, output, &control, &mut |_| {}).is_err());
+        assert!(build_mod(&plan, &profile, output).is_err());
     }
     assert!(!source_mod.join("output").exists());
     assert!(

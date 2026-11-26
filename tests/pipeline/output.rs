@@ -4,7 +4,6 @@ use super::*;
 fn game_versions_do_not_warn_or_block_scan_or_build() {
     let fixture = fixture();
     let game = fixture.0.join("game");
-    let control = Control::default();
     let profile = Profile::default();
     let output = fixture.0.join("mod");
     for version in [
@@ -28,9 +27,9 @@ fn game_versions_do_not_warn_or_block_scan_or_build() {
         } else {
             fs::remove_file(game.join("launcher-settings.json")).unwrap();
         }
-        let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+        let plan = scan_game(&game).unwrap();
         assert!(plan.diagnostics.iter().all(|d| d.rule != "game-version"));
-        let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        let report = build_mod(&plan, &profile, &output).unwrap();
         assert_eq!(
             report
                 .diagnostics
@@ -52,8 +51,7 @@ fn game_versions_do_not_warn_or_block_scan_or_build() {
 #[test]
 fn mod_picture_is_saved_converted_replaced_and_removed() {
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
     let source = fixture.0.join("cover.bmp");
     let image = image::RgbaImage::from_pixel(7, 5, image::Rgba([20, 40, 60, 255]));
@@ -69,7 +67,7 @@ fn mod_picture_is_saved_converted_replaced_and_removed() {
     for color in [[20, 40, 60, 255], [80, 100, 120, 255]] {
         let image = image::RgbaImage::from_pixel(7, 5, image::Rgba(color));
         image.save(&source).unwrap();
-        compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         assert_eq!(
             image::open(output.join("thumbnail.png"))
                 .unwrap()
@@ -102,13 +100,13 @@ fn mod_picture_is_saved_converted_replaced_and_removed() {
         } else {
             fs::remove_file(&source).unwrap();
         }
-        let error = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap_err();
+        let error = build_mod(&plan, &profile, &output).unwrap_err();
         assert!(format!("{error:#}").contains("mod picture"));
         assert_eq!(fs::read(output.join("thumbnail.png")).unwrap(), previous);
     }
 
     profile.picture = None;
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert!(!output.join("thumbnail.png").exists());
     for path in [output.join("descriptor.mod"), fixture.0.join("mod.mod")] {
         assert!(!fs::read_to_string(path).unwrap().contains("picture="));
@@ -118,8 +116,7 @@ fn mod_picture_is_saved_converted_replaced_and_removed() {
 #[test]
 fn descriptors_include_mod_version_and_exact_game_version() {
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
     let profile = Profile {
         mod_version: "2.3.0-beta.1".into(),
@@ -128,7 +125,7 @@ fn descriptors_include_mod_version_and_exact_game_version() {
     let profile_path = fixture.0.join("profile.toml");
     profile.save(&profile_path).unwrap();
     let profile = Profile::load(&profile_path).unwrap();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
 
     let descriptor = fs::read_to_string(output.join("descriptor.mod")).unwrap();
     let document = Document::parse(&descriptor).unwrap();
@@ -161,8 +158,7 @@ fn descriptors_include_mod_version_and_exact_game_version() {
 #[test]
 fn supported_version_override_is_saved_and_does_not_change_asset_version() {
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
     let profile_path = fixture.0.join("profile.toml");
     let mut profile = Profile {
@@ -172,7 +168,7 @@ fn supported_version_override_is_saved_and_does_not_change_asset_version() {
     for expected in ["v4.5.*", "v4.5.2"] {
         profile.save(&profile_path).unwrap();
         profile = Profile::load(&profile_path).unwrap();
-        compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        build_mod(&plan, &profile, &output).unwrap();
         for path in [output.join("descriptor.mod"), fixture.0.join("mod.mod")] {
             let text = fs::read_to_string(path).unwrap();
             let document = Document::parse(&text).unwrap();
@@ -197,17 +193,16 @@ fn supported_version_override_is_saved_and_does_not_change_asset_version() {
 #[test]
 fn build_is_reproducible_cached_and_preserves_user_files() {
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
     let profile = Profile::default();
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(report.textures, 1);
     assert_eq!(report.cache_hits, 0);
     assert!(report.validation.errors.is_empty());
     let manifest = fs::read(output.join(compiler::manifest_name())).unwrap();
     write(&output, "user-notes.txt", "keep me");
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(report.cache_hits, 1);
     assert_eq!(
         fs::read(output.join(compiler::manifest_name())).unwrap(),
@@ -225,7 +220,7 @@ fn build_is_reproducible_cached_and_preserves_user_files() {
         manifest
     );
     fs::remove_file(fixture.0.join("game/gfx/test.png")).unwrap();
-    assert!(compiler::build(&plan, &profile, &output, &control, &mut |_| {}).is_err());
+    assert!(build_mod(&plan, &profile, &output).is_err());
     assert_eq!(
         fs::read(output.join(compiler::manifest_name())).unwrap(),
         manifest
@@ -235,11 +230,10 @@ fn build_is_reproducible_cached_and_preserves_user_files() {
 #[test]
 fn corrupted_cache_entries_are_rebuilt_and_published_without_temporary_files() {
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let profile = Profile::default();
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let cache_root = fixture.0.join(".ui-scaler-cache");
     let entries = stellaris_ui_scaler::assets::files(&cache_root).unwrap();
     assert_eq!(entries.len(), 1);
@@ -251,7 +245,7 @@ fn corrupted_cache_entries_are_rebuilt_and_published_without_temporary_files() {
         } else {
             fs::write(cached, b"incomplete PNG").unwrap();
         }
-        let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+        let report = build_mod(&plan, &profile, &output).unwrap();
         assert_eq!(report.cache_hits, 0);
         assert_eq!(fs::read(cached).unwrap(), expected);
         assert_eq!(
@@ -263,7 +257,7 @@ fn corrupted_cache_entries_are_rebuilt_and_published_without_temporary_files() {
             entries
         );
     }
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(report.cache_hits, 1);
     assert!(!fs::read_dir(&fixture.0).unwrap().any(|entry| {
         entry
@@ -279,11 +273,10 @@ fn rebuild_preserves_large_user_files_and_records_generated_content_hashes() {
     use std::io::Write;
 
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join("mod");
     let profile = Profile::default();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let user_path = output.join("user/archive.bin");
     fs::create_dir(user_path.parent().unwrap()).unwrap();
     let mut file = fs::File::create(&user_path).unwrap();
@@ -292,7 +285,7 @@ fn rebuild_preserves_large_user_files_and_records_generated_content_hashes() {
     drop(file);
     let original = fs::read(&user_path).unwrap();
 
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(fs::read(&user_path).unwrap(), original);
     let manifest: compiler::Manifest =
         serde_json::from_slice(&fs::read(output.join(compiler::manifest_name())).unwrap()).unwrap();
@@ -319,13 +312,12 @@ fn rebuild_preserves_user_file_case_and_inherited_source_problems() {
         spriteType = { name = GFX_duplicate texturefile = "gfx/test.png" noOfFrames = 2 noOfFrames = 2 }
     }"#;
     write(&game, "interface/inherited.gfx", source);
-    let control = Control::default();
-    let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&game).unwrap();
     let output = fixture.0.join("Scaled UI");
     let profile = Profile::default();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     write(&output, "User Notes/Read Me.txt", "Keep my case");
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert!(report.validation.errors.is_empty());
     assert_eq!(report.validation.inherited_missing.len(), 1);
     assert_eq!(
@@ -350,11 +342,9 @@ fn invalid_utf8_output_names_are_rejected_without_creating_a_lossy_path() {
     use std::{ffi::OsString, os::unix::ffi::OsStringExt};
 
     let fixture = fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let output = fixture.0.join(OsString::from_vec(b"invalid-\xff".to_vec()));
-    let error =
-        compiler::build(&plan, &Profile::default(), &output, &control, &mut |_| {}).unwrap_err();
+    let error = build_mod(&plan, &Profile::default(), &output).unwrap_err();
     assert!(error.to_string().contains("UTF-8"));
     assert!(!output.exists());
     assert!(!Path::new(output.to_string_lossy().as_ref()).exists());
@@ -363,17 +353,16 @@ fn invalid_utf8_output_names_are_rejected_without_creating_a_lossy_path() {
 #[test]
 fn incremental_build_rehashes_content_and_removes_only_stale_owned_files() {
     let fixture = fixture();
-    let control = Control::default();
     let profile = Profile::default();
     let game = fixture.0.join("game");
     let output = fixture.0.join("mod");
-    let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&game).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let before = fs::read(output.join("gfx/test_scaled.png")).unwrap();
     let mut image = image::open(game.join("gfx/test.png")).unwrap().to_rgba8();
     image.put_pixel(0, 0, image::Rgba([0, 0, 255, 255]));
     image.save(game.join("gfx/test.png")).unwrap();
-    let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let report = build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(report.cache_hits, 0);
     assert_ne!(
         before,
@@ -381,8 +370,8 @@ fn incremental_build_rehashes_content_and_removes_only_stale_owned_files() {
     );
     write(&output, "user/data.txt", "retained");
     write(&game, "interface/example.gfx", "spriteTypes = {}");
-    let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&game).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert!(!output.join("gfx/test_scaled.png").exists());
     assert!(output.join("user/data.txt").exists());
 }
@@ -390,17 +379,16 @@ fn incremental_build_rehashes_content_and_removes_only_stale_owned_files() {
 #[test]
 fn rebuild_recovers_when_only_the_launcher_descriptor_remains() {
     let fixture = fixture();
-    let control = Control::default();
     let profile = Profile::default();
     let output = fixture.0.canonicalize().unwrap().join("mod");
     let launcher = output.with_added_extension("mod");
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let descriptor = fs::read(&launcher).unwrap();
     let manifest = fs::read(output.join(compiler::manifest_name())).unwrap();
     fs::remove_dir_all(&output).unwrap();
 
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(fs::read(&launcher).unwrap(), descriptor);
     assert_eq!(
         fs::read(output.join(compiler::manifest_name())).unwrap(),
@@ -410,7 +398,7 @@ fn rebuild_recovers_when_only_the_launcher_descriptor_remains() {
     fs::remove_dir_all(&output).unwrap();
     let foreign = "name=\"Other mod\"\npath=\"/another/mod\"\n";
     fs::write(&launcher, foreign).unwrap();
-    let error = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap_err();
+    let error = build_mod(&plan, &profile, &output).unwrap_err();
     let message = error.to_string();
     assert!(message.contains(&launcher.display().to_string()));
     assert!(message.contains(&output.display().to_string()));
@@ -421,18 +409,17 @@ fn rebuild_recovers_when_only_the_launcher_descriptor_remains() {
 #[test]
 fn failed_publication_keeps_previous_output_and_launcher() {
     let fixture = fixture();
-    let control = Control::default();
     let profile = Profile::default();
     let output = fixture.0.join("mod");
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let manifest = fs::read(output.join(compiler::manifest_name())).unwrap();
     for descriptor in [
         "another mod".to_owned(),
         format!("# path=\"{}\"\npath=\"/another/mod\"\n", output.display()),
     ] {
         fs::write(fixture.0.join("mod.mod"), &descriptor).unwrap();
-        assert!(compiler::build(&plan, &profile, &output, &control, &mut |_| {}).is_err());
+        assert!(build_mod(&plan, &profile, &output).is_err());
         assert_eq!(
             fs::read(output.join(compiler::manifest_name())).unwrap(),
             manifest
@@ -458,16 +445,9 @@ fn duplicate_output_names_are_rejected_before_writing() {
         "interface/second.gfx",
         "spriteTypes = { spriteType = { name = \"GFX_other\" texturefile = \"gfx/test.tga\" noOfFrames = 2 } }",
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     assert_eq!(plan.textures.len(), 2);
-    let error = compiler::build(
-        &plan,
-        &Profile::default(),
-        &output,
-        &Control::default(),
-        &mut |_| {},
-    )
-    .unwrap_err();
+    let error = build_mod(&plan, &Profile::default(), &output).unwrap_err();
     assert!(error.to_string().contains("collision"));
     assert!(!output.exists());
 }

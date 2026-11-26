@@ -137,9 +137,10 @@ impl Studio {
         let Some(plan) = &self.plan else {
             return;
         };
+        let selected = self.selected();
         if let Some(index) = self
             .visual_search
-            .show(ctx, plan, &self.profile, self.selected, busy)
+            .show(ctx, plan, &self.profile, selected, busy)
         {
             self.open_asset(index);
         }

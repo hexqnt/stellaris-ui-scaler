@@ -24,6 +24,8 @@ pub(super) enum Target {
     Picture,
 }
 
+pub(super) struct PathEdit(pub Option<PathBuf>);
+
 pub(super) struct Picker<T> {
     active: Option<(T, FileDialog)>,
 }
@@ -83,6 +85,39 @@ impl<T> Picker<T> {
 }
 
 impl Picker<Target> {
+    pub(super) fn field(
+        &mut self,
+        ui: &mut egui::Ui,
+        target: Target,
+        value: &mut String,
+        width: f32,
+        hint: &str,
+    ) {
+        ui.add(
+            egui::TextEdit::singleline(value)
+                .hint_text(hint)
+                .desired_width(width),
+        );
+        self.button(ui, target, Path::new(value.trim()));
+    }
+
+    pub(super) fn optional_field(
+        &mut self,
+        ui: &mut egui::Ui,
+        target: Target,
+        current: Option<&Path>,
+        edit: impl FnOnce(&mut egui::Ui, egui::TextEdit<'_>) -> egui::Response,
+    ) -> Option<PathEdit> {
+        let mut text = current.map_or_default(Path::to_string_lossy);
+        let response = edit(ui, egui::TextEdit::singleline(&mut text));
+        let updated = response
+            .changed()
+            .then(|| (!text.is_empty()).then(|| PathBuf::from(text.as_ref())));
+        let current = updated.as_ref().map_or(current, |path| path.as_deref());
+        self.button(ui, target, current.unwrap_or_else(|| Path::new("")));
+        updated.map(PathEdit)
+    }
+
     pub(super) fn button(&mut self, ui: &mut egui::Ui, target: Target, current: &Path) {
         let (kind, title) = match target {
             Target::Game => (Kind::Directory, "Select Stellaris installation"),

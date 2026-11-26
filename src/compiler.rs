@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     assets::{Diagnostic, Installation},
-    config::{Category, Profile, Scale},
+    config::{Category, ImageFeatures, Profile, Scale, TexturePolicy},
     source_mods, textures, validation,
 };
 
@@ -95,6 +95,26 @@ pub struct Progress {
     pub completed: usize,
     pub total: usize,
 }
+impl Progress {
+    const fn new(stage: ProgressStage, completed: usize, total: usize) -> Self {
+        Self {
+            stage,
+            completed,
+            total,
+        }
+    }
+}
+
+impl std::fmt::Display for Progress {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "{}: {}/{}",
+            self.stage, self.completed, self.total
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct TextureAsset {
     pub path: String,
@@ -139,6 +159,34 @@ impl TextureAsset {
         self.width
             .checked_div(self.frames)
             .map(|width| (width, self.height))
+    }
+
+    fn render(
+        &self,
+        source: &image::RgbaImage,
+        policy: TexturePolicy,
+        features: Option<&ImageFeatures>,
+        processor: &textures::Processor,
+        control: &Control,
+    ) -> Result<image::RgbaImage> {
+        ensure!(
+            source.dimensions() == (self.width, self.height),
+            "Source dimensions changed since scan: {}",
+            self.path
+        );
+        let boundary = if self.tiled {
+            textures::Boundary::Periodic
+        } else {
+            textures::Boundary::Image
+        };
+        processor.process(
+            source,
+            policy.scale,
+            self.frames,
+            &policy.processing(features).options,
+            boundary,
+            &|| control.check(),
+        )
     }
 
     fn target_dimensions(&self, scale: Scale) -> Result<(u32, u32)> {
@@ -334,11 +382,7 @@ pub fn build_with_cache(
         diagnostics,
         validation,
     };
-    progress(Progress {
-        stage: ProgressStage::Complete,
-        completed: 1,
-        total: 1,
-    });
+    progress(Progress::new(ProgressStage::Complete, 1, 1));
     Ok(report)
 }
 

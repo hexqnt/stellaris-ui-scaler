@@ -31,7 +31,8 @@ impl Node {
         interaction: &mut Interaction,
     ) {
         let selected = match selection {
-            Some(Selection::Directory(path) | Selection::Asset(path)) => path == &self.path,
+            Some(Selection::Directory(path)) => self.asset.is_none() && path == &self.path,
+            Some(Selection::Asset(index)) => self.asset == Some(*index),
             _ => false,
         };
         let rules = if self.asset.is_some() {
@@ -78,7 +79,7 @@ impl Node {
         label.wrap.break_anywhere = true;
         let label = ui.painter().layout_job(label);
         ui.push_id(&self.path, |ui| {
-            if self.asset.is_some() {
+            if let Some(index) = self.asset {
                 ui.indent("asset", |ui| {
                     let response = ui
                         .add(egui::Button::selectable(selected, label).truncate())
@@ -87,7 +88,7 @@ impl Node {
                         interaction.reveal_rect = Some(response.rect);
                     }
                     if response.clicked() {
-                        interaction.clicked = Some(Selection::Asset(self.path.clone()));
+                        interaction.clicked = Some(Selection::Asset(index));
                     }
                 });
             } else {
@@ -212,9 +213,9 @@ impl AssetTree {
 
 impl super::Studio {
     pub(super) fn draw_asset_tree(&mut self, ui: &mut egui::Ui, busy: bool) {
-        let Some(plan) = &self.plan else {
+        if self.plan.is_none() {
             return;
-        };
+        }
         let clicked = egui::ScrollArea::vertical()
             .id_salt("asset-tree")
             .auto_shrink([false, false])
@@ -230,14 +231,6 @@ impl super::Studio {
             })
             .inner;
         if let Some(selection) = clicked {
-            self.selected = match &selection {
-                Selection::Asset(path) => {
-                    self.asset_search.matches.iter().find_map(|&(index, _)| {
-                        (plan.textures[index].path == *path).then_some(index)
-                    })
-                }
-                Selection::Directory(_) | Selection::Category(_) => None,
-            };
             self.rule_selection = Some(selection);
         }
     }
@@ -315,7 +308,7 @@ mod tests {
             &(0..assets.len()).map(|i| (i, 0)).collect::<Vec<_>>(),
         );
         tree.collapse_all();
-        let selection = Selection::Asset(assets[79].path.clone());
+        let selection = Selection::Asset(79);
         let mut visible_target = false;
         let mut offset = 0.0;
         for frame in 0..16 {

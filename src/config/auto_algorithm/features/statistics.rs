@@ -3,8 +3,45 @@ use serde::Serialize;
 
 use super::Content;
 
-#[derive(Debug, Clone, Copy, Serialize)]
-pub(super) struct PixelStats {
+// Все счётчики при объединении кадров суммируются, за исключением экстремумов каналов.
+macro_rules! pixel_stats {
+    ($($counter:ident: $ty:ty),+ $(,)?) => {
+        #[derive(Debug, Clone, Copy, Serialize)]
+        pub(super) struct PixelStats {
+            $($counter: $ty,)+
+            minimum: [u8; 3],
+            maximum: [u8; 3],
+            minimum_alpha: u8,
+            maximum_alpha: u8,
+        }
+
+        impl PixelStats {
+            pub(super) const fn empty() -> Self {
+                Self {
+                    $($counter: 0,)+
+                    minimum: [255; 3],
+                    maximum: [0; 3],
+                    minimum_alpha: 255,
+                    maximum_alpha: 0,
+                }
+            }
+
+            pub(super) fn merge(&mut self, other: &Self) {
+                $(self.$counter += other.$counter;)+
+                self.minimum_alpha = self.minimum_alpha.min(other.minimum_alpha);
+                self.maximum_alpha = self.maximum_alpha.max(other.maximum_alpha);
+                for (minimum, value) in self.minimum.iter_mut().zip(other.minimum) {
+                    *minimum = (*minimum).min(value);
+                }
+                for (maximum, value) in self.maximum.iter_mut().zip(other.maximum) {
+                    *maximum = (*maximum).max(value);
+                }
+            }
+        }
+    };
+}
+
+pixel_stats! {
     samples: u32,
     visible: u32,
     color_weight: u64,
@@ -21,38 +58,9 @@ pub(super) struct PixelStats {
     alpha_curves: u32,
     alpha_rough: u32,
     soft_alpha: u32,
-    minimum: [u8; 3],
-    maximum: [u8; 3],
-    minimum_alpha: u8,
-    maximum_alpha: u8,
 }
 
 impl PixelStats {
-    pub(super) const fn empty() -> Self {
-        Self {
-            samples: 0,
-            visible: 0,
-            color_weight: 0,
-            flat_weight: 0,
-            varying_weight: 0,
-            sharp_weight: 0,
-            rough_weight: 0,
-            curvature_weight: 0,
-            near_energy: 0,
-            far_energy: 0,
-            alpha_pairs: 0,
-            alpha_edges: 0,
-            alpha_varying: 0,
-            alpha_curves: 0,
-            alpha_rough: 0,
-            soft_alpha: 0,
-            minimum: [255; 3],
-            maximum: [0; 3],
-            minimum_alpha: 255,
-            maximum_alpha: 0,
-        }
-    }
-
     pub(super) fn sample(&mut self, pixel: Rgba<u8>) -> bool {
         self.samples += 1;
         self.minimum_alpha = self.minimum_alpha.min(pixel[3]);
@@ -72,33 +80,6 @@ impl PixelStats {
             *maximum = (*maximum).max(channel);
         }
         true
-    }
-
-    pub(super) fn merge(&mut self, other: &Self) {
-        self.samples += other.samples;
-        self.visible += other.visible;
-        self.color_weight += other.color_weight;
-        self.flat_weight += other.flat_weight;
-        self.varying_weight += other.varying_weight;
-        self.sharp_weight += other.sharp_weight;
-        self.rough_weight += other.rough_weight;
-        self.curvature_weight += other.curvature_weight;
-        self.near_energy += other.near_energy;
-        self.far_energy += other.far_energy;
-        self.alpha_pairs += other.alpha_pairs;
-        self.alpha_edges += other.alpha_edges;
-        self.alpha_varying += other.alpha_varying;
-        self.alpha_curves += other.alpha_curves;
-        self.alpha_rough += other.alpha_rough;
-        self.soft_alpha += other.soft_alpha;
-        self.minimum_alpha = self.minimum_alpha.min(other.minimum_alpha);
-        self.maximum_alpha = self.maximum_alpha.max(other.maximum_alpha);
-        for (minimum, value) in self.minimum.iter_mut().zip(other.minimum) {
-            *minimum = (*minimum).min(value);
-        }
-        for (maximum, value) in self.maximum.iter_mut().zip(other.maximum) {
-            *maximum = (*maximum).max(value);
-        }
     }
 
     pub(super) fn content(&self) -> Option<Content> {

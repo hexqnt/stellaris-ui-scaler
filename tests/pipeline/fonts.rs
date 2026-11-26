@@ -20,7 +20,7 @@ fn font_usage_tracks_explicit_assignments_in_effective_mod_files() {
         "buttonType = { name = mod_button buttonFont = jura }",
     );
     let control = Control::default();
-    let plan = compiler::plan(&game, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&game).unwrap();
     let group = plan
         .fonts
         .groups
@@ -94,8 +94,7 @@ fn font_usage_tracks_explicit_assignments_in_effective_mod_files() {
 fn combined_font_pass_preserves_sequential_definitions_and_bitmap_outputs() {
     use stellaris_ui_scaler::config::FontRule;
     let fixture = font_fixture();
-    let control = Control::default();
-    let plan = compiler::plan(&fixture.0.join("game"), &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&fixture.0.join("game")).unwrap();
     let profile = Profile {
         font_scale: Some(Scale::try_from(1.5).unwrap()),
         fonts: BTreeMap::from([(
@@ -123,7 +122,7 @@ fn combined_font_pass_preserves_sequential_definitions_and_bitmap_outputs() {
     )
     .unwrap();
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert_eq!(
         fs::read_to_string(output.join("interface/fonts.gfx")).unwrap(),
         expected
@@ -162,7 +161,7 @@ fn font_rules_roundtrip_and_control_native_and_replacement_variants() {
     use stellaris_ui_scaler::config::{FontRule, FontSize};
     let fixture = font_fixture();
     let root = fixture.0.join("game");
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let mut profile = Profile {
         scale: Scale::try_from(2.0).unwrap(),
         ..Profile::default()
@@ -197,7 +196,7 @@ fn font_rules_roundtrip_and_control_native_and_replacement_variants() {
     let loaded = Profile::load(&path).unwrap();
     assert_eq!(loaded.fonts, profile.fonts);
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &loaded, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &loaded, &output).unwrap();
     let text = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
     let doc = Document::parse(&text).unwrap();
     let root = &doc.nodes[0];
@@ -273,7 +272,7 @@ fn invalid_font_settings_fail_before_output_is_created() {
         "interface/fonts.gfx",
         r#"bitmapfonts = { bitmapfont = { name = "jura" } }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let mut profile = Profile::default();
     profile.fonts.insert(
         "jura".into(),
@@ -283,8 +282,7 @@ fn invalid_font_settings_fail_before_output_is_created() {
         },
     );
     let output = fixture.0.join("invalid");
-    let error =
-        compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap_err();
+    let error = build_mod(&plan, &profile, &output).unwrap_err();
     assert!(error.to_string().contains("Unknown TTF family"));
     assert!(!output.exists());
     profile.fonts.clear();
@@ -401,7 +399,7 @@ fn font_catalog_preserves_language_specific_bitmap_sizes() {
         bitmapfont_override = { name = "load_screen" fontfiles = { "gfx/fonts/jura" } languages = { "l_russian" } }
     }"#);
     write(&root, "interface/fonts.gfx", &source);
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let group = plan
         .fonts
         .groups
@@ -445,7 +443,7 @@ fn font_catalog_preserves_language_specific_bitmap_sizes() {
     };
     profile.fonts.insert("load_screen".into(), rule);
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let text = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
     let doc = Document::parse(&text).unwrap();
     let mut sizes = BTreeMap::new();
@@ -475,7 +473,7 @@ fn bitmap_scaling_preserves_metrics_typeface_and_shared_sources() {
     }"#,
     );
     let original = fs::read(root.join("gfx/fonts/hoi.fnt")).unwrap();
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let mut profile = Profile {
         scale: Scale::try_from(2.0).unwrap(),
         ..Profile::default()
@@ -496,7 +494,7 @@ fn bitmap_scaling_preserves_metrics_typeface_and_shared_sources() {
         },
     );
     let output = fixture.0.join("bitmap-mod");
-    compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let gfx = fs::read_to_string(output.join("interface/fonts.gfx")).unwrap();
     assert!(!gfx.contains("bitmapfont_override"));
     for (group, dimensions, size) in [("hoi_16mbs", (16, 8), 32.0), ("jura", (12, 6), 24.0)] {
@@ -534,7 +532,7 @@ fn bitmap_scaling_preserves_metrics_typeface_and_shared_sources() {
     assert!(metrics.contains("kerning first=65 second=66 amount=-2"));
     assert_eq!(fs::read(root.join("gfx/fonts/hoi.fnt")).unwrap(), original);
     profile.fonts.clear();
-    compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     assert!(
         !output
             .join("gfx/fonts/ui_scaler/hoi_16mbs/hoi.fnt")

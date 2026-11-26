@@ -6,10 +6,9 @@ use super::{Selection, Studio, icons, theme};
 
 impl Studio {
     pub(super) fn open_asset(&mut self, index: usize) {
-        let Some(asset) = self.plan.as_ref().and_then(|plan| plan.textures.get(index)) else {
+        let Some(plan) = self.plan.clone().filter(|plan| index < plan.textures.len()) else {
             return;
         };
-        let path = asset.path.clone();
         if !self
             .asset_search
             .matches
@@ -20,10 +19,9 @@ impl Studio {
             self.category = None;
             self.refresh_asset_filter();
         }
-        self.asset_tree.reveal(&path);
+        self.asset_tree.reveal(&plan.textures[index].path);
         self.tab = super::WorkspaceTab::Textures;
-        self.selected = Some(index);
-        self.rule_selection = Some(Selection::Asset(path));
+        self.rule_selection = Some(Selection::Asset(index));
         self.invalidate_preview();
         self.select_current_algorithm();
     }
@@ -69,7 +67,7 @@ impl Studio {
             .on_hover_text("Ctrl+F: search assets · Esc: clear search")
     }
     pub(super) fn assets_panel(&mut self, ui: &mut egui::Ui, busy: bool) {
-        let previous_selection = self.selected;
+        let previous_selection = self.selected();
         if ui
             .add_enabled(self.plan.is_some(), egui::Button::new("Search by image…"))
             .clicked()
@@ -128,10 +126,9 @@ impl Studio {
                 .clicked()
         {
             self.rule_selection = Some(Selection::Category(category));
-            self.selected = None;
         }
         self.draw_asset_tree(ui, busy);
-        if previous_selection != self.selected {
+        if previous_selection != self.selected() {
             self.invalidate_preview();
             self.select_current_algorithm();
         }
@@ -141,7 +138,11 @@ impl Studio {
             return;
         }
         if let Some(target) = &self.rule_selection {
-            target.set_algorithm(&mut self.profile, self.algorithms[self.chosen]);
+            let assets = self
+                .plan
+                .as_ref()
+                .map_or_default(|plan| plan.textures.as_slice());
+            target.set_algorithm(&mut self.profile, assets, self.algorithms[self.chosen]);
             self.status = "Algorithm override updated; save the profile to persist it".into();
         }
     }

@@ -5,13 +5,12 @@ use std::{
 
 use eframe::egui::{self, Vec2};
 
-use crate::{compiler, config::Profile};
-
-use super::{
-    Completed, Event, Studio, icons, mod_install,
-    path_picker::{Picker, Target},
-    settings, theme,
+use crate::{
+    compiler,
+    config::{Profile, SHARPENING, SHARPENING_RADIUS},
 };
+
+use super::{Completed, Event, Studio, icons, mod_install, path_picker::Target, settings, theme};
 
 impl Studio {
     pub(super) fn scale_controls(&mut self, ui: &mut egui::Ui) {
@@ -50,11 +49,11 @@ impl Studio {
                 ui.end_row();
                 ui.label("Sharpening");
                 ui.horizontal(|ui| {
-                    ui.add(egui::DragValue::new(&mut self.profile.textures.sharpening).range(0.0..=2.0).speed(0.01));
+                    ui.add(egui::DragValue::new(&mut self.profile.textures.sharpening).range(SHARPENING).speed(0.01));
                     ui.checkbox(&mut self.profile.auto_sharpening, "Auto sharpening")
                         .on_hover_text("Limit sharpening for smooth gradients and strong edges. Explicit sharpening rules take priority.");
                     ui.label("Radius");
-                    ui.add(egui::DragValue::new(&mut self.profile.textures.sharpening_radius).range(0.1..=5.0).speed(0.1));
+                    ui.add(egui::DragValue::new(&mut self.profile.textures.sharpening_radius).range(SHARPENING_RADIUS).speed(0.1));
                     ui.label("Threshold");
                     ui.add(egui::DragValue::new(&mut self.profile.textures.sharpening_threshold).range(0..=255));
                 });
@@ -235,12 +234,7 @@ impl Studio {
             self.status.push_str("; ");
             self.status.push_str(notice);
         }
-        self.visual_search = super::visual_search::VisualSearch::default();
-        self.plan = Some(Arc::new(plan));
-        self.refresh_asset_filter();
-        self.selected = None;
-        self.rule_selection = None;
-        self.invalidate_preview();
+        self.set_plan(Some(Arc::new(plan)));
     }
 
     pub(super) fn load_profile(&mut self) {
@@ -266,11 +260,14 @@ impl Studio {
     }
 
     pub(super) fn invalidate_sources(&mut self) {
-        self.visual_search = super::visual_search::VisualSearch::default();
-        self.plan = None;
-        self.selected = None;
-        self.rule_selection = None;
         self.built_mod = None;
+        self.set_plan(None);
+    }
+
+    fn set_plan(&mut self, plan: Option<Arc<compiler::BuildPlan>>) {
+        self.visual_search = super::visual_search::VisualSearch::default();
+        self.plan = plan;
+        self.rule_selection = None;
         self.refresh_asset_filter();
         self.invalidate_preview();
     }
@@ -315,13 +312,16 @@ impl Studio {
                     }
                     ui.separator();
                     theme::section(ui, "Profile");
-                    path_field(
-                        ui,
-                        &mut self.profile_path,
-                        "Path to a TOML profile",
-                        &mut self.path_picker,
-                        Target::Profile,
-                    );
+                    ui.horizontal(|ui| {
+                        let width = (ui.available_width() - 48.0).max(40.0);
+                        self.path_picker.field(
+                            ui,
+                            Target::Profile,
+                            &mut self.profile_path,
+                            width,
+                            "Path to a TOML profile",
+                        );
+                    });
                     ui.horizontal(|ui| {
                         if ui.add(icons::button(icons::LOAD, "Load profile")).clicked() {
                             self.load_profile();
@@ -337,13 +337,16 @@ impl Studio {
                     });
                     ui.separator();
                     theme::section(ui, "Output directory");
-                    path_field(
-                        ui,
-                        &mut self.output,
-                        "Generated mod directory",
-                        &mut self.path_picker,
-                        Target::Output,
-                    );
+                    ui.horizontal(|ui| {
+                        let width = (ui.available_width() - 48.0).max(40.0);
+                        self.path_picker.field(
+                            ui,
+                            Target::Output,
+                            &mut self.output,
+                            width,
+                            "Generated mod directory",
+                        );
+                    });
                     ui.small("The generated mod stays in this directory after installation.");
                     ui.separator();
                     theme::section(ui, "UI scaling");
@@ -357,22 +360,4 @@ impl Studio {
                 });
             });
     }
-}
-
-fn path_field(
-    ui: &mut egui::Ui,
-    value: &mut String,
-    hint: &str,
-    picker: &mut Picker<Target>,
-    target: Target,
-) {
-    ui.horizontal(|ui| {
-        let width = (ui.available_width() - 48.0).max(40.0);
-        ui.add(
-            egui::TextEdit::singleline(value)
-                .hint_text(hint)
-                .desired_width(width),
-        );
-        picker.button(ui, target, Path::new(value.trim()));
-    });
 }

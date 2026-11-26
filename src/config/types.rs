@@ -20,14 +20,7 @@ pub enum Algorithm {
     RealPlksr2x,
 }
 impl Algorithm {
-    pub const RESAMPLING: [Self; 6] = [
-        Self::Nearest,
-        Self::Bilinear,
-        Self::CatmullRom,
-        Self::Mitchell,
-        Self::Lanczos2,
-        Self::Lanczos3,
-    ];
+    pub const RESAMPLING: [Self; 6] = *Self::ALL.first_chunk::<6>().unwrap();
 
     pub const ALL: [Self; 7] = [
         Self::Nearest,
@@ -112,7 +105,7 @@ impl TryFrom<f64> for Scale {
     type Error = anyhow::Error;
     fn try_from(value: f64) -> Result<Self> {
         ensure!(
-            value.is_finite() && (0.25..=8.0).contains(&value),
+            (0.25..=8.0).contains(&value),
             "Scale must be finite and between 0.25 and 8"
         );
         Ok(Self(value))
@@ -219,7 +212,7 @@ impl TryFrom<f64> for FontSize {
     type Error = anyhow::Error;
     fn try_from(value: f64) -> Result<Self> {
         ensure!(
-            value.is_finite() && (1.0..=512.0).contains(&value),
+            (1.0..=512.0).contains(&value),
             "Font size must be finite and between 1 and 512"
         );
         Ok(Self(value))
@@ -233,20 +226,21 @@ pub struct AutoSourceMods {
     pub source_mods: Vec<PathBuf>,
 }
 
+pub const SHARPENING: std::ops::RangeInclusive<f32> = 0.0..=2.0;
+pub const SHARPENING_RADIUS: std::ops::RangeInclusive<f32> = 0.1..=5.0;
+
 impl TextureRule {
     pub(super) fn check(&self, key: &str) -> Result<()> {
-        if let Some(value) = self.sharpening {
-            ensure!(
-                value.is_finite() && (0.0..=2.0).contains(&value),
-                "Invalid sharpening for {key}"
-            );
-        }
-        if let Some(value) = self.sharpening_radius {
-            ensure!(
-                value.is_finite() && (0.1..=5.0).contains(&value),
-                "Invalid sharpening radius for {key}"
-            );
-        }
+        ensure!(
+            self.sharpening
+                .is_none_or(|value| SHARPENING.contains(&value)),
+            "Invalid sharpening for {key}"
+        );
+        ensure!(
+            self.sharpening_radius
+                .is_none_or(|value| SHARPENING_RADIUS.contains(&value)),
+            "Invalid sharpening radius for {key}"
+        );
         Ok(())
     }
 }

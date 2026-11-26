@@ -47,8 +47,9 @@ impl Index {
                 property: property.into(),
             });
         };
+        let area = UsageArea::in_file(path);
         for node in &doc.nodes {
-            walk_fields(path, node, UsageArea::in_file(path), &mut visit);
+            walk_fields(path, node, area, &mut visit);
         }
     }
 

@@ -1,7 +1,9 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
     fs,
+    ops::Range,
     path::Path,
 };
 
@@ -23,10 +25,11 @@ pub struct ValidationReport {
 
 fn texture_references<'source>(doc: &Document<'source>) -> BTreeSet<Cow<'source, str>> {
     let mut refs = BTreeSet::new();
-    doc.walk(|n| {
-        if n.key
-            .is_some_and(|key| assets::is_texture_key(key) || key.eq_ignore_ascii_case("file"))
-            && let Some(value) = n.atom()
+    doc.walk(|node| {
+        if let Some((reference, _)) = assets::texture_reference(node) {
+            refs.insert(reference);
+        } else if node.key.is_some_and(|key| key.eq_ignore_ascii_case("file"))
+            && let Some(value) = node.atom()
         {
             refs.insert(assets::normalize_reference(value));
         }
@@ -42,7 +45,7 @@ fn check_references(
     original: &Document<'_>,
     report: &mut ValidationReport,
 ) {
-    let baseline = texture_references(original);
+    let mut baseline = None;
     for reference in texture_references(doc) {
         let exists_in_game = game.contains(&reference);
         let valid = assets::safe_relative(&reference).is_ok()
@@ -50,7 +53,10 @@ fn check_references(
         if valid {
             continue;
         }
-        let inherited = baseline.contains(&reference) && !exists_in_game;
+        let inherited = !exists_in_game
+            && baseline
+                .get_or_insert_with(|| texture_references(original))
+                .contains(&reference);
         let diagnostic = Diagnostic {
             path: path.into(),
             span: None,
@@ -94,25 +100,47 @@ fn check_frames(directory: &Path, path: &str, doc: &Document<'_>, errors: &mut V
     });
 }
 
-fn duplicates(
-    nodes: &[Node<'_>],
-    ancestry: &str,
-    out: &mut BTreeMap<String, std::ops::Range<usize>>,
-) {
-    for (index, node) in nodes.iter().enumerate() {
-        let identity = node.named().unwrap_or_else(|| node.key.unwrap_or("list"));
-        let path = format!("{ancestry}/{identity}:{index}");
-        let mut seen = BTreeSet::new();
-        for child in node.children().iter().filter(|n| n.atom().is_some()) {
-            let key = child.key.unwrap_or("").to_ascii_lowercase();
-            if !key.is_empty()
-                && let Some(key) = seen.replace(key)
-            {
-                out.insert(format!("{path}/{key}"), child.span.clone());
+fn duplicates(doc: &Document<'_>) -> BTreeMap<String, Range<usize>> {
+    fn visit<'doc, 'source>(
+        nodes: &'doc [Node<'source>],
+        ancestry: &mut String,
+        properties: &mut Vec<(&'source str, &'doc Range<usize>)>,
+        out: &mut BTreeMap<String, Range<usize>>,
+    ) {
+        for (index, node) in nodes.iter().enumerate() {
+            let children = node.children();
+            if children.is_empty() {
+                continue;
             }
+            let prefix_len = ancestry.len();
+            let identity = node.named().or(node.key).unwrap_or("list");
+            let _ = write!(ancestry, "/{identity}:{index}");
+            properties.clear();
+            properties.extend(children.iter().filter_map(|child| {
+                let key = child.key.filter(|key| !key.is_empty())?;
+                child.atom().map(|_| (key, &child.span))
+            }));
+            properties.sort_unstable_by(|(a, a_span), (b, b_span)| {
+                a.bytes()
+                    .map(|c| c.to_ascii_lowercase())
+                    .cmp(b.bytes().map(|c| c.to_ascii_lowercase()))
+                    .then_with(|| a_span.start.cmp(&b_span.start))
+            });
+            for matches in properties.chunk_by(|(a, _), (b, _)| a.eq_ignore_ascii_case(b)) {
+                if let [_, .., (key, span)] = matches {
+                    let mut path = format!("{ancestry}/{key}");
+                    path[ancestry.len() + 1..].make_ascii_lowercase();
+                    out.insert(path, (*span).clone());
+                }
+            }
+            visit(children, ancestry, properties, out);
+            ancestry.truncate(prefix_len);
         }
-        duplicates(node.children(), &path, out);
     }
+
+    let mut out = BTreeMap::new();
+    visit(&doc.nodes, &mut String::new(), &mut Vec::new(), &mut out);
+    out
 }
 
 /// # Errors
@@ -172,18 +200,18 @@ pub fn validate(game: &Installation, directory: &Path) -> Result<ValidationRepor
         };
         let original_doc = Document::parse(&original)?;
         check_references(game, directory, &relative, &doc, &original_doc, &mut report);
-        let mut baseline_duplicates = BTreeMap::new();
-        duplicates(&original_doc.nodes, "", &mut baseline_duplicates);
-        let mut generated_duplicates = BTreeMap::new();
-        duplicates(&doc.nodes, "", &mut generated_duplicates);
-        for (key, span) in generated_duplicates {
-            if !baseline_duplicates.contains_key(&key) {
-                report.errors.push(Diagnostic {
-                    path: relative.clone(),
-                    span: Some(span),
-                    rule: "duplicate-property".into(),
-                    message: key,
-                });
+        let generated_duplicates = duplicates(&doc);
+        if !generated_duplicates.is_empty() {
+            let baseline = duplicates(&original_doc);
+            for (key, span) in generated_duplicates {
+                if !baseline.contains_key(&key) {
+                    report.errors.push(Diagnostic {
+                        path: relative.clone(),
+                        span: Some(span),
+                        rule: "duplicate-property".into(),
+                        message: key,
+                    });
+                }
             }
         }
         check_frames(directory, &relative, &doc, &mut report.errors);

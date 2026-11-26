@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
     fs,
-    io::Write,
     path::{Path, PathBuf},
 };
 
@@ -9,7 +8,7 @@ use anyhow::{Context, Result, ensure};
 
 use crate::{
     assets::{self, Installation},
-    atomic_file::AtomicFile,
+    atomic_file::{AtomicFile, Durability},
     config::Profile,
     paths,
 };
@@ -25,7 +24,6 @@ impl Drop for StagingDirectory {
 
 pub(super) struct OutputTransaction {
     destination: PathBuf,
-    parent: PathBuf,
     previous: Option<Manifest>,
     stage: StagingDirectory,
     path_line: String,
@@ -76,7 +74,6 @@ impl OutputTransaction {
         let stage = StagingDirectory(stage_path);
         Ok(Self {
             destination: output,
-            parent,
             previous,
             stage,
             path_line,
@@ -86,7 +83,7 @@ impl OutputTransaction {
         &self.stage.0
     }
     pub(super) fn cache_root(&self) -> PathBuf {
-        self.parent.join(".ui-scaler-cache")
+        self.destination.with_file_name(".ui-scaler-cache")
     }
 
     pub(super) fn record_files(&self, profile: &Profile, game: &Installation) -> Result<()> {
@@ -128,8 +125,8 @@ impl OutputTransaction {
     }
     pub(super) fn publish(self, descriptor: &str) -> Result<PathBuf> {
         let backup = self
-            .parent
-            .join(format!(".ui-scaler-backup-{}", std::process::id()));
+            .destination
+            .with_file_name(format!(".ui-scaler-backup-{}", std::process::id()));
         ensure!(!backup.exists(), "Backup directory already exists");
         let launcher = self.destination.with_added_extension("mod");
         let launcher_text = format!("{descriptor}{}\n", self.path_line);
@@ -147,7 +144,7 @@ impl OutputTransaction {
             );
         }
         let launcher_file =
-            AtomicFile::prepare(&launcher, |file| file.write_all(launcher_text.as_bytes()))
+            AtomicFile::prepare(&launcher, launcher_text.as_bytes(), Durability::Buffered)
                 .context("Cannot prepare launcher descriptor")?;
         let existed = self.destination.exists();
         if existed {

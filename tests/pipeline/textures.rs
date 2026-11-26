@@ -175,7 +175,7 @@ fn texture_batches_match_single_worker_and_recover_corrupted_resource_cache() {
     fs::create_dir_all(resource_path.parent().unwrap()).unwrap();
     fs::write(resource_path, textures::resource_dds(&source).unwrap()).unwrap();
     let control = Control::default();
-    let plan = compiler::plan(&root, &control, &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     assert_eq!(plan.textures.len(), 19);
     let profile = Profile {
         scale: Scale::try_from(2.0).unwrap(),
@@ -211,7 +211,7 @@ fn texture_batches_match_single_worker_and_recover_corrupted_resource_cache() {
                 textures::decode(&fs::read(output.join(resource)).unwrap()).unwrap(),
                 scaled
             );
-            let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+            let report = build_mod(&plan, &profile, &output).unwrap();
             assert_eq!(report.cache_hits, plan.textures.len());
             assert_rebuild_ignores_cache(&plan, &profile, &output, &control);
             let cache = output.parent().unwrap().join(".ui-scaler-cache");
@@ -222,7 +222,7 @@ fn texture_batches_match_single_worker_and_recover_corrupted_resource_cache() {
                 .find(|path| fs::read(path).unwrap() == resource_bytes)
                 .unwrap();
             fs::write(entry, b"incomplete PNG").unwrap();
-            let report = compiler::build(&plan, &profile, &output, &control, &mut |_| {}).unwrap();
+            let report = build_mod(&plan, &profile, &output).unwrap();
             assert_eq!(report.cache_hits, plan.textures.len() - 1);
             assert_eq!(
                 fs::read(output.join(compiler::manifest_name())).unwrap(),
@@ -253,21 +253,14 @@ fn frame_count_exceeding_texture_width_is_preserved_with_diagnostic() {
         "interface/example.gfx",
         "spriteTypes = { spriteType = { name = \"GFX_test\" textureFile = \"gfx/test.png\" noOfFrames = 9 } }",
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     assert!(plan.textures.is_empty());
     assert!(
         plan.diagnostics
             .iter()
             .any(|d| d.rule == "source-frame-layout")
     );
-    let report = compiler::build(
-        &plan,
-        &Profile::default(),
-        &fixture.0.join("mod"),
-        &Control::default(),
-        &mut |_| {},
-    )
-    .unwrap();
+    let report = build_mod(&plan, &Profile::default(), &fixture.0.join("mod")).unwrap();
     assert!(report.validation.errors.is_empty());
 }
 
@@ -359,14 +352,14 @@ fn padded_button_atlas_is_scaled_without_widget_scale_fallback() {
         })
     });
     image.save(root.join("gfx/test.png")).unwrap();
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     assert!(plan.diagnostics.iter().any(|d| d.rule == "frame-padding"));
     let profile = Profile {
         scale: Scale::try_from(2.0).unwrap(),
         ..Profile::default()
     };
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     let atlas = image::open(output.join("gfx/test_scaled.png"))
         .unwrap()
         .to_rgba8();
@@ -399,13 +392,13 @@ fn resource_icons_are_overridden_at_engine_dds_paths() {
         "interface/resources.gfx",
         r#"spriteTypes = { spriteType = { name = "GFX_resource_energy" textureFile = "gfx/interface/icons/resources/energy.dds" } }"#,
     );
-    let plan = compiler::plan(&root, &Control::default(), &mut |_| {}).unwrap();
+    let plan = scan_game(&root).unwrap();
     let profile = Profile {
         scale: Scale::try_from(2.0).unwrap(),
         ..Profile::default()
     };
     let output = fixture.0.join("mod");
-    compiler::build(&plan, &profile, &output, &Control::default(), &mut |_| {}).unwrap();
+    build_mod(&plan, &profile, &output).unwrap();
     for path in [path, grey] {
         let dds = fs::read(output.join(path)).unwrap();
         assert!(dds.starts_with(b"DDS "));

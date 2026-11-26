@@ -96,7 +96,14 @@ fn pasted_image_search_finishes_in_background_and_reuses_index() {
         studio.profile.clone(),
         Input::Image(color),
     );
-    let control = studio.visual_search.job.as_ref().unwrap().control.clone();
+    let control = studio
+        .visual_search
+        .job
+        .as_ref()
+        .unwrap()
+        .task
+        .control
+        .clone();
     studio.visual_search = VisualSearch::default();
     assert!(control.check().is_err());
 }
@@ -136,7 +143,7 @@ fn pages_extend_past_sixty_without_duplicates_and_can_resume_after_cancellation(
     let index = search.index.clone().unwrap();
 
     search.load_next_page(&ctx, Arc::clone(&plan));
-    let control = search.job.as_ref().unwrap().control.clone();
+    let control = search.job.as_ref().unwrap().task.control.clone();
     search.load_next_page(&ctx, Arc::clone(&plan));
     assert!(
         control.check().is_ok(),
@@ -172,7 +179,7 @@ fn pages_extend_past_sixty_without_duplicates_and_can_resume_after_cancellation(
     assert_eq!(search.rows[0].hit.asset, 0);
 
     search.load_next_page(&ctx, Arc::clone(studio.plan.as_ref().unwrap()));
-    let old_control = search.job.as_ref().unwrap().control.clone();
+    let old_control = search.job.as_ref().unwrap().task.control.clone();
     search.start(
         &ctx,
         Arc::clone(studio.plan.as_ref().unwrap()),
@@ -261,7 +268,7 @@ fn closing_a_page_worker_preserves_results_and_allows_automatic_loading_after_re
     );
     finish(search, &ctx);
     search.load_next_page(&ctx, Arc::clone(&plan));
-    let control = search.job.as_ref().unwrap().control.clone();
+    let control = search.job.as_ref().unwrap().task.control.clone();
     search.close();
     assert!(control.check().is_err());
     assert!(!search.open);

@@ -1,6 +1,9 @@
 use eframe::egui;
 
-use crate::config::{Algorithm, Category, Profile, Scale, TextureRule};
+use crate::{
+    compiler::TextureAsset,
+    config::{Algorithm, Category, Profile, SHARPENING, SHARPENING_RADIUS, Scale, TextureRule},
+};
 
 use super::{
     icons,
@@ -11,14 +14,15 @@ use super::{
 pub(super) enum Selection {
     Category(Category),
     Directory(String),
-    Asset(String),
+    Asset(usize),
 }
 
 impl Selection {
-    pub(super) fn key(&self) -> &str {
+    pub(super) fn key<'a>(&'a self, assets: &'a [TextureAsset]) -> &'a str {
         match self {
             Self::Category(category) => category.name(),
-            Self::Directory(path) | Self::Asset(path) => path,
+            Self::Directory(path) => path,
+            Self::Asset(index) => &assets[*index].path,
         }
     }
 
@@ -33,9 +37,14 @@ impl Selection {
         }
     }
 
-    pub fn set_algorithm(&self, profile: &mut Profile, algorithm: Algorithm) {
+    pub fn set_algorithm(
+        &self,
+        profile: &mut Profile,
+        assets: &[TextureAsset],
+        algorithm: Algorithm,
+    ) {
         self.rules(profile)
-            .entry(self.key().to_owned())
+            .entry(self.key(assets).to_owned())
             .or_default()
             .algorithm = Some(algorithm);
     }
@@ -44,19 +53,20 @@ impl Selection {
         &self,
         ui: &mut egui::Ui,
         profile: &mut Profile,
-        category: Category,
-        frame_size: Option<(u32, u32)>,
+        assets: &[TextureAsset],
         features: Option<&crate::config::ImageFeatures>,
     ) -> bool {
+        let key = self.key(assets);
         // Сохраняем запись в карте, чтобы вычислять наследование без перевыделения памяти каждый кадр.
         let mut rule = self
             .rules(profile)
-            .get_mut(self.key())
+            .get_mut(key)
             .map_or_default(std::mem::take);
         let previous = rule;
-        let path = match self {
-            Self::Category(_) => "",
-            Self::Directory(path) | Self::Asset(path) => path.as_str(),
+        let (path, category, frame_size) = match self {
+            Self::Category(category) => ("", *category, None),
+            Self::Directory(_) => (key, Category::Icon, None),
+            Self::Asset(index) => (key, assets[*index].category, assets[*index].frame_size()),
         };
         let policy = profile.texture_policy(path, category, frame_size);
         controls(
@@ -76,11 +86,11 @@ impl Selection {
         }
         let changed = previous != rule;
         if rule == TextureRule::default() {
-            self.rules(profile).remove(self.key());
-        } else if let Some(saved) = self.rules(profile).get_mut(self.key()) {
+            self.rules(profile).remove(key);
+        } else if let Some(saved) = self.rules(profile).get_mut(key) {
             *saved = rule;
         } else {
-            self.rules(profile).insert(self.key().to_owned(), rule);
+            self.rules(profile).insert(key.to_owned(), rule);
         }
         changed
     }
@@ -133,14 +143,14 @@ fn controls(
                 "Sharpening",
                 &mut rule.sharpening,
                 inherited.sharpening,
-                0.0..=2.0,
+                SHARPENING,
                 0.01,
             ),
             (
                 "Radius",
                 &mut rule.sharpening_radius,
                 inherited.sharpening_radius,
-                0.1..=5.0,
+                SHARPENING_RADIUS,
                 0.1,
             ),
         ] {
@@ -179,7 +189,15 @@ mod tests {
         icons::install(&ctx).unwrap();
         let mut profile = Profile::default();
         let path = "gfx/icons/test.dds";
-        let selection = Selection::Asset(path.into());
+        let selection = Selection::Asset(0);
+        let assets = [TextureAsset {
+            path: path.into(),
+            width: 32,
+            height: 32,
+            frames: 1,
+            category: Category::Icon,
+            tiled: false,
+        }];
         profile.directories.insert(
             "gfx/icons".into(),
             TextureRule {
@@ -195,7 +213,7 @@ mod tests {
                 },
                 |ui| {
                     ui.set_max_width(292.0);
-                    selection.show(ui, profile, Category::Icon, Some((32, 32)), None);
+                    selection.show(ui, profile, &assets, None);
                 },
             )
         };
