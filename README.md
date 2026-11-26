@@ -10,6 +10,8 @@ Create a mod with a larger Stellaris interface: scale UI elements, textures, and
 
 Download a **Windows or Linux** build from the repository's **Releases**, extract the archive, and run `stellaris-ui-scaler` (`stellaris-ui-scaler.exe` on Windows). Keep the included `profiles` and `ai` directories alongside the executable.
 
+Linux also has an `.AppImage` release: make it executable (`chmod +x *.AppImage`) and run it. The AI model and runtime are included; the Linux system requirements below still apply. For CLI use, pass arguments directly to the AppImage. If FUSE is unavailable, run it with `--appimage-extract-and-run`.
+
 Prebuilt binaries require an x86-64-v3 CPU with AVX2/FMA. Linux builds require glibc 2.39 or newer and X11/Wayland and OpenGL libraries for the GUI.
 
 ## Create a mod

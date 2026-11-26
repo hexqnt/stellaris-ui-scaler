@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Stellaris UI Scaler
+Comment=Compile and compare scaled Stellaris user interfaces
+Exec=stellaris-ui-scaler
+Icon=stellaris-ui-scaler
+Terminal=false
+Categories=Graphics;

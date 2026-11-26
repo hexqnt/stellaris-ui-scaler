@@ -91,6 +91,24 @@ jobs:
         run: |
           python -m pip install -r tools/requirements-ai.txt
           python tools/prepare_ai.py --output "dist/$PACKAGE/ai"
+      - name: Package Linux AppImage
+        if: runner.os == 'Linux'
+        env:
+          ARCH: x86_64
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          appdir="$RUNNER_TEMP/stellaris-ui-scaler.AppDir"
+          cp -R "dist/$PACKAGE" "$appdir"
+          cp packaging/appimage/AppRun packaging/appimage/stellaris-ui-scaler.desktop "$appdir/"
+          cp assets/icons/aperture.svg "$appdir/stellaris-ui-scaler.svg"
+          chmod +x "$appdir/AppRun"
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 120 \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
+            --output "$RUNNER_TEMP/appimagetool.AppImage"
+          chmod +x "$RUNNER_TEMP/appimagetool.AppImage"
+          "$RUNNER_TEMP/appimagetool.AppImage" "$appdir" "dist/$PACKAGE.AppImage"
+          "dist/$PACKAGE.AppImage" --version
+          "dist/$PACKAGE.AppImage" --help
       - name: Archive Linux package
         if: runner.os == 'Linux'
         run: tar -czf "dist/$PACKAGE.tar.gz" -C dist "$PACKAGE"
@@ -104,6 +122,7 @@ jobs:
           path: |
             dist/*.tar.gz
             dist/*.zip
+            dist/*.AppImage
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
@@ -123,7 +142,7 @@ jobs:
           merge-multiple: true
       - name: Generate checksums
         working-directory: dist
-        run: sha256sum *.tar.gz *.zip > SHA256SUMS
+        run: sha256sum *.tar.gz *.zip *.AppImage > SHA256SUMS
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

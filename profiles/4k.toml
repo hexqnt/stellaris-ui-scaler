@@ -15,7 +15,7 @@ auto_algorithm = true
 auto_sharpening = true
 
 [auto_source_mods]
-source_mods = ["/home/v_0ver/ssd/SteamLibrary/steamapps/workshop/content/281990/681483874"]
+source_mods = []
 
 [fonts.hoi_16mbs]
 replace_bitmap = false
